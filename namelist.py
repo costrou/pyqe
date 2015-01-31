@@ -4,24 +4,25 @@ Namelist
 These are dictionaries with configuration varaibles.
 """
 import os
+from collections import Callable
 
 class Namelist:
     """
     Defines the partial class implementation of each namelist
     """
-    
+
     NAMELIST_TAB = "    "
-    
+
     def __init__(self):
-        self.name = "CONTROL"
+        self.keys = {}
         self.keypairs = {}
+        self.name = ""
 
     def keyDescription(self, key):
         """
         Returns a nicely formated description of the key
         for Espresso calculations
         """
-        from collections import Callable
         value = self.keys.get(key)
 
         keydesc_str = ""
@@ -35,7 +36,7 @@ class Namelist:
                 keydesc_str += """Default:
    Function Name          : {0}
    Current Function Value : {1}
-""".format(value[1].__name__, value[1](self))
+""".format(value[1].__name__, value[1]())
             else:
                 keydesc_str += """Default:
    Value                  : {0}
@@ -56,28 +57,22 @@ class Namelist:
 
         return keydesc_str
 
-    def addKeypairs(self, newkeypairs):
-        """
-        Add List, Tuple, or Dictionary of keypairs to the namelist.
-        """
-        if isinstance(newkeypairs, (list, tuple)):
-            for keypair in newkeypairs:
-                self.addKeypair(keypair)
-        elif isinstance(newkeypairs, dict):
-            for keypair in newkeypairs.items():
-                self.addKeypair(keypair)
+    def getDefaultKeyValue(self, key):
+        value = self.keys.get(key)
+        if isinstance(value[1], Callable):
+            return value[1]()
+        return value[1]
 
-    def addKeypair(self, newkeypair):
-        """
-        Adds List or Tuple of keypairs to the namelist.
-        """
-        from collections import Callable
 
-        if not len(newkeypair) == 2 or not isinstance(newkeypair[0], str):
+    def validate_keypair(self, keypair):
+        """
+        Ensures that keypair is valid for namelist
+        """
+        if not len(keypair) == 2 or not isinstance(keypair[0], str):
             error_str = "keypair consist of ['str', value]"
             raise Exception(error_str)
 
-        key, value = newkeypair
+        key, value = keypair
         key_info = self.keys.get(key)
 
         # Check if key is valid
@@ -95,9 +90,32 @@ class Namelist:
             error_str = "'{0}' key '{1}' value '{2}' invalid range".format(self.name, key, value)
             raise Exception(error_str)
 
+
+    def addKeypairs(self, keypairs):
+        """
+        Add List, Tuple, or Dictionary of keypairs to the namelist.
+        """
+        if isinstance(keypairs, (list, tuple)):
+            for keypair in keypairs:
+                self.addKeypair(keypair)
+        elif isinstance(keypairs, dict):
+            for keypair in keypairs.items():
+                self.addKeypair(keypair)
+        else:
+            raise Exception("Keypairs must be of type List, Tuple, or Dictionary")
+
+    def addKeypair(self, keypair):
+        """
+        Adds List or Tuple of keypairs to the namelist.
+        """
+        self.validate_keypair(keypair)
+        
+        key, value = keypair
+        key_info = self.keys.get(key)
+
         # Check if user is setting key to its default value (harmless)
         if ((isinstance(key_info[1], Callable) and
-            value == key_info[1](self)) or value == key_info[1]):
+             value == key_info[1]()) or value == key_info[1]):
             print("Warning: Setting Key '{0}' to its default value".format(key))
 
         if self.keypairs.get(key):
@@ -120,32 +138,8 @@ class Namelist:
 
         return namelist_str
 
-# Control Namelist Class
-def isPositive(value):
+def isPositive(self, value):
     return value > 0.0
-
-def defaultNStep(control):
-    if control.keypairs.get('calculation') in ['scf', 'nscf']:
-        return 1
-    else:
-        return 50
-
-def defaultTprnfor(control):
-    return control.keypairs.get('calculation') in ['vc-md', 'vc-relax']
-
-def defaultOutdir(control):
-    return os.environ.get('ESPRESSO_TMPDIR', './')
-
-def defaultPseudoDir(control):
-    return os.environ.get('ESPRESSO_PSEUDODIR',
-                          os.environ.get('HOME') + '/espresso/pseudo/')
-
-def defaultDiskIO(control):
-    if control.keypairs.get('calculation') == 'scf':
-        return 'low'
-    else:
-        return 'medium'
-
 
 class Control(Namelist):
     """
@@ -154,20 +148,48 @@ class Control(Namelist):
     The keys tuple:
     key-name | type | default value | available values (may be function) | doc string for key
     """
-    keys = {
-        'calculation': (str, 'scf', ('scf', 'nscf', 'bands', 'relax', 'md', 'vc-relax'), """
+
+    def _defaultNStep(self):
+        # Include None because scf is default value
+        if self.keypairs.get('calculation') in ['scf', 'nscf', None]:
+            return 1
+        else:
+            return 50
+
+    def _defaultTprnfor(self):
+        return self.keypairs.get('calculation') in ['vc-md', 'vc-relax']
+
+    def _defaultOutdir(self):
+        return os.environ.get('ESPRESSO_TMPDIR', './')
+
+    def _defaultPseudoDir(self):
+        return os.environ.get('ESPRESSO_PSEUDODIR',
+                              os.environ.get('HOME') + '/espresso/pseudo/')
+
+    def _defaultDiskIO(self):
+        # Include None because scf is default value
+        if self.keypairs.get('calculation') in ['scf', None]:
+            return 'low'
+        else:
+            return 'medium'
+
+    def __init__(self):
+        self.name = "CONTROL"
+        self.keypairs = {}
+        self.keys = {
+            'calculation': (str, 'scf', ('scf', 'nscf', 'bands', 'relax', 'md', 'vc-relax'), """
 A string describing the task to be performed
 vc = variable cell
 """),
-        'title': (str, '', (), """
+            'title': (str, '', (), """
 reprinted on output
 """),
-        'verbosity': (str, 'low', ('low', 'high'), """
+            'verbosity': (str, 'low', ('low', 'high'), """
 Currently two verbosity levels are implemented:
   'high' and 'low'. 'debug' and 'medium' have the same
   effect as 'high'; 'default' and 'minimal', as 'low'
 """),
-        'restart_mode': ( str, 'from_scratch', ('from_scratch', 'restart'), """
+            'restart_mode': ( str, 'from_scratch', ('from_scratch', 'restart'), """
 'from_scratch'  : from scratch. This is the normal way
                   to perform a PWscf calculation
 'restart'       : from previous interrupted run. Use this
@@ -180,7 +202,7 @@ Currently two verbosity levels are implemented:
                   create a file "prefix".EXIT, in directory
                   "outdir"; see variables "prefix", "outdir")
 """),
-        'wf_collect': (bool, False, (), """
+            'wf_collect': (bool, False, (), """
 This flag controls the way wavefunctions are stored to disk :
 
 True    collect wavefunctions from all processors, store them
@@ -197,30 +219,30 @@ False   do not collect wavefunctions, leave them in temporary
 
 Note that this flag has no effect on reading, only on writing.
 """),
-        'nstep': (int, defaultNStep, (), """
+            'nstep': (int, self._defaultNStep, (), """
 number of ionic + electronic steps
 """),
-        'iprint': (int, None, (), """
+            'iprint': (int, None, (), """
 band energies are written every "iprint" iterations
 """),
-        'tstress': (bool, False, (), """
+            'tstress': (bool, False, (), """
 calculate stress. It is set to True automatically if
 calculation='vc-md' or 'vc-relax'
 """),
-        'tprnfor': (bool, defaultTprnfor , (), """
+            'tprnfor': (bool, self._defaultTprnfor , (), """
 calculate forces. It is set to .TRUE. automatically if
 calculation='relax','md','vc-md'
 """),
-        'dt': (float, 20.0, isPositive, """
+            'dt': (float, 20.0, isPositive, """
 time step for molecular dynamics, in Rydberg atomic units
 (1 a.u.=4.8378 * 10^-17 s : beware, the CP code uses
  Hartree atomic units, half that much!!!)
 """),
-        'outdir': (str, defaultOutdir, (), """
+            'outdir': (str, self._defaultOutdir, (), """
 input, temporary, output files are found in this directory,
 see also "wfcdir"
 """),
-        'wfcdir': (str, defaultOutdir, (), """
+            'wfcdir': (str, self._defaultOutdir, (), """
 this directory specifies where to store files generated by
 each processor (*.wfc{N}, *.igk{N}, etc.). Useful for
 machines without a parallel file system: set "wfcdir" to
@@ -230,23 +252,23 @@ in order to restart from interrupted runs, or to perform
 further calculations using the produced data files, you
 may need to copy files to "outdir". Works only for pw.x.
 """),
-        'prefix': (str, 'pwscf', (), """
+            'prefix': (str, 'pwscf', (), """
 prepended to input/output filenames:
 prefix.wfc, prefix.rho, etc.
 """),             
-        'lkpoint_dir': (bool, True, (), """
+            'lkpoint_dir': (bool, True, (), """
 If .false. a subdirectory for each k_point is not opened
 in the "prefix".save directory; Kohn-Sham eigenvalues are
 stored instead in a single file for all k-points. Currently
 doesn't work together with "wf_collect"
 """),             
-        'max_seconds': (float, 1.0e7, isPositive, """
+            'max_seconds': (float, 1.0e7, isPositive, """
 jobs stops after "max_seconds" CPU time. Use this option
 in conjunction with option "restart_mode" if you need to
 split a job too long to complete into shorter jobs that
 fit into your batch queues. Default is 150 days.
 """),
-        'etot_conv_thr': (float, 1.0e-4, isPositive, """
+            'etot_conv_thr': (float, 1.0e-4, isPositive, """
 convergence threshold on total energy (a.u) for ionic
 minimization: the convergence criterion is satisfied
 when the total energy changes less than "etot_conv_thr"
@@ -254,13 +276,13 @@ between two consecutive scf steps. Note that "etot_conv_thr"
 is extensive, like the total energy.
 See also "forc_conv_thr" - both criteria must be satisfied
 """),
-        'forc_conv_thr': (float, 1.0e-4, isPositive, """
+            'forc_conv_thr': (float, 1.0e-4, isPositive, """
 convergence threshold on forces (a.u) for ionic minimization:
 the convergence criterion is satisfied when all components of
 all forces are smaller than "forc_conv_thr".
 See also "etot_conv_thr" - both criteria must be satisfied
 """),
-        'disk_io': (str, defaultDiskIO, ('none', 'low', 'medium', 'high'), """
+            'disk_io': (str, self._defaultDiskIO, ('none', 'low', 'medium', 'high'), """
 Specifies the amount of disk I/O activity
 'high':   save all data to disk at each SCF step
 
@@ -280,16 +302,16 @@ It is no longer needed to specify 'high' in order to be able
 to restart from an interrupted calculation (see "restart_mode")
 but you cannot restart in disk_io='none'
 """),
-        'pseudo_dir': (str, defaultPseudoDir, (), """
+            'pseudo_dir': (str, self._defaultPseudoDir, (), """
 directory containing pseudopotential files             
 """),
-        'tefield': (bool, False, (), """
+            'tefield': (bool, False, (), """
 If True a saw-like potential simulating an electric field
 is added to the bare ionic potential. See variables "edir",
 "eamp", "emaxpos", "eopreg" for the form and size of
 the added potential.
 """),
-        'dipfield': (bool, False, (), """
+            'dipfield': (bool, False, (), """
 If True and tefield=True a dipole correction is also
 added to the bare ionic potential - implements the recipe
 of L. Bengtsson, PRB 59, 12301 (1999). See variables "edir",
@@ -297,19 +319,19 @@ of L. Bengtsson, PRB 59, 12301 (1999). See variables "edir",
 be used ONLY in a slab geometry, for surface calculations,
 with the discontinuity FALLING IN THE EMPTY SPACE.
 """),
-        'lelfield': (bool, False, (), """
+            'lelfield': (bool, False, (), """
 If .TRUE. a homogeneous finite electric field described
 through the modern theory of the polarization is applied.
 This is different from "tefield=.true." !
 """),
-        'nberrycyc': (int, 1, isPositive, """
+            'nberrycyc': (int, 1, isPositive, """
 In the case of a finite electric field  ( lelfield == .TRUE. )
 it defines the number of iterations for converging the
 wavefunctions in the electric field Hamiltonian, for each
 external iteration on the charge density
 """),
              
-        'lorbm': (bool, False, (), """
+            'lorbm': (bool, False, (), """
 If .TRUE. perform orbital magnetization calculation.
 If finite electric field is applied (lelfield=.true.)
 only Kubo terms are computed
@@ -318,21 +340,43 @@ The type of calculation is 'nscf' and should be performed
 on an automatically generated uniform grid of k points.
 Works ONLY with norm-conserving pseudopotentials.
 """),             
-        'lberry': (bool, False, (), """
+            'lberry': (bool, False, (), """
 If .TRUE. perform a Berry phase calculation
 See the header of PW/src/bp_c_phase.f90 for documentation
 """),
-        'gdir': (int, None, (1, 2, 3), """
+            'gdir': (int, None, (1, 2, 3), """
 For Berry phase calculation: direction of the k-point
 strings in reciprocal space. Allowed values: 1, 2, 3
 1=first, 2=second, 3=third reciprocal lattice vector
 For calculations with finite electric fields
 (lelfield==.true.) "gdir" is the direction of the field
 """),
-        'nppstr': (int, None, isPositive, """
+            'nppstr': (int, None, isPositive, """
 For Berry phase calculation: number of k-points to be
 calculated along each symmetry-reduced string
 The same for calculation with finite electric fields
 (lelfield=.true.)
 """)}
 
+    def validate(self):
+        """
+        Validate keypairs
+        """
+        # This check should NOT fail
+        for keypair in self.keypairs.items():
+            self.validate_keypair(keypair)
+
+        # There are no requirements of this class.
+
+        # Ensure that pseudo_dir, outdir, and wfcdir exist
+        keys = ['pseudo_dir', 'outdir', 'wfcdir']
+
+        for key in keys:
+            directory = self.keypairs.get(key)
+            if directory:
+                if not os.path.isdir(directory):
+                    raise Exception("Directory '{0}' for {1} does not exist".format(directory, key))
+            else:
+                directory = self.getDefaultKeyValue(key)
+                if not os.path.isdir(directory):
+                    raise Exception("Default directory '{0}' for key '{1}' does not exist. (set crontol.{2} or create directory)".format(directory, key, key))

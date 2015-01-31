@@ -60,14 +60,14 @@ class QE:
 
         # Only needed if calculations is not
         # 'band' or 'nscf'
-        if self.control.keypairs["calculation"] not in ["nscf", "bands"]:
+        if self.control.keypairs.get("calculation") not in ["nscf", "bands"]:
             qe_str += str(self.atomic_positions)
 
         qe_str += str(self.k_points)
 
         # Only needed if unitcell is not defined
         # By ibrav
-        if self.system.keypairs["ibrav"] == 0:
+        if self.system.keypairs.get("ibrav") == 0:
             qe_str += str(self.cell_parameters)
 
         # Not Implemented
@@ -127,6 +127,28 @@ class QE:
                 err_file.write(pw_err)
 
         return [pw_out, pw_err]
+
+    def validate(self):
+        """
+        Each Namelist and Cards will validate its contents.
+        Sometimes they will need access to global information.
+        (not sure how to handle this yet)
+        """
+        self.control.validate()
+        # Not Implemented
+        # self.system.validate()
+        # self.electrons.validate()
+        # self.ions.validate()
+        # self.cell.validate()
+
+        self.atomic_species.validate()
+        self.atomic_positions.validate()
+        self.k_points.validate()
+        self.cell_parameters.validate()
+        # Not Implemented
+        # self.occupations.validate()
+        # self.constrains.validate()
+        # self.atomicforces.validate()
 
 
 class NameList:

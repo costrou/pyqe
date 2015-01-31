@@ -44,11 +44,32 @@ class AtomicSpecies:
         mass      double
         pseudopot path to pseudo potential file
         """
+        atom_type = [symbol, mass, pseudopot]
+
+        self.validate_atom_type(atom_type)
+        self.atoms.append(atom_type)
+
+    def validate_atom_type(self, atom_type):
+        symbol, mass, pseudopot = atom_type
+
         if len(symbol) > 2:
             error_str = "Chemical Symbol 1-2 Characters [{0}]".format(symbol)
             raise Exception(error_str)
 
-        self.atoms.append([symbol, mass, pseudopot])
+        if not isinstance(mass, float):
+            error_str = "Mass {0} not of correct type double".format(mass)
+            raise Exception(error_str)
+
+        if not isinstance(pseudopot, str):
+            error_str = "PsuedoPot filename {0} must be string".format(pseudopot)
+            raise Exception(error_str)
+
+    def validate(self):
+        """
+        Validate atoms
+        """
+        for atom in self.atoms:
+            self.validate_atom_type(atom)
 
     def __str__(self):
         atoms_str = "{0}\n".format(self.name)
@@ -254,7 +275,7 @@ class CellParameters:
         Validate that class K_POINTS is properly setup
         (to the best of my knowledge)
         """
-        if self.option not in CellParameters.options:
+        if self.option not in CellParameters.options and not (self.option == None and self.lattice_vec == None):
             error_str = "CELL_PARAMETER {0} not valid (should never happen)".format(self.option)
             raise Exception(error_str)
 

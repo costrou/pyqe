@@ -12,8 +12,8 @@ def create_input():
     from espresso import QE
     qe = QE()
     qe.control.addKeypairs({
-        'calculation': 'scf',
-        'restart_mode': 'from_scratch',
+#        'calculation': 'scf',
+#        'restart_mode': 'from_scratch',
         'pseudo_dir': './',
         'prefix': 'cu'
     })
@@ -40,5 +40,6 @@ def create_input():
 
 if __name__ == "__main__":
     qe = create_input()
+    qe.validate()
     qe.to_file("hello.in")
     qe.run()
