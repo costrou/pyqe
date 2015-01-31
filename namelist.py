@@ -5,6 +5,122 @@ These are dictionaries with configuration varaibles.
 """
 import os
 
+class Namelist:
+    """
+    Defines the partial class implementation of each namelist
+    """
+    
+    NAMELIST_TAB = "    "
+    
+    def __init__(self):
+        self.name = "CONTROL"
+        self.keypairs = {}
+
+    def keyDescription(self, key):
+        """
+        Returns a nicely formated description of the key
+        for Espresso calculations
+        """
+        from collections import Callable
+        value = self.keys.get(key)
+
+        keydesc_str = ""
+        if value:
+            keydesc_str = "Key: '{0}'\n".format(key)
+
+            current_keyvalue = self.keypairs.get(key, None)
+            keydesc_str += "Current Value\n   {0}\n".format(current_keyvalue)
+            keydesc_str += "Type\n   {0}\n".format(value[0].__name__)
+            if isinstance(value[1], Callable):
+                keydesc_str += """Default:
+   Function Name          : {0}
+   Current Function Value : {1}
+""".format(value[1].__name__, value[1](self))
+            else:
+                keydesc_str += """Default:
+   Value                  : {0}
+""".format(value[1])
+            if isinstance(value[2], Callable):
+                keydesc_str += """Valid Values:
+   Function Name          : {0}
+   Function (value)       -> (valueValid ? True : False)
+""".format(value[1].__name__)
+            elif value[2]:
+                keydesc_str += "Valid Values\n   " + " ".join(map(str, value[2])) + "\n"
+            else:
+                keydesc_str += "Valid Values\n   [Full Range]\n"
+
+            keydesc_str += "Description:\n" + value[3]
+        else:
+            keydesc_str = "Key {0} not a valid CONTROL variable\n".format(key)
+
+        return keydesc_str
+
+    def addKeypairs(self, newkeypairs):
+        """
+        Add List, Tuple, or Dictionary of keypairs to the namelist.
+        """
+        if isinstance(newkeypairs, (list, tuple)):
+            for keypair in newkeypairs:
+                self.addKeypair(keypair)
+        elif isinstance(newkeypairs, dict):
+            for keypair in newkeypairs.items():
+                self.addKeypair(keypair)
+
+    def addKeypair(self, newkeypair):
+        """
+        Adds List or Tuple of keypairs to the namelist.
+        """
+        from collections import Callable
+
+        if not len(newkeypair) == 2 or not isinstance(newkeypair[0], str):
+            error_str = "keypair consist of ['str', value]"
+            raise Exception(error_str)
+
+        key, value = newkeypair
+        key_info = self.keys.get(key)
+
+        # Check if key is valid
+        if not key_info:
+            error_str = "{0} '{1}' not valid key name".format(self.name, key)
+            raise Exception(error_str)
+
+        # Check if value is of correct type
+        if not isinstance(value, key_info[0]):
+            error_str = "{0} key '{1}' value '{2}' not of type {3}".format(self.name, key, value, key_info[0].__name__)
+            raise Exception(error_str)
+
+        # Check the range of value is correct
+        if (isinstance(key_info[2], Callable) and not key_info[2](value)) or (key_info[2] and value not in key_info[2]):
+            error_str = "'{0}' key '{1}' value '{2}' invalid range".format(self.name, key, value)
+            raise Exception(error_str)
+
+        # Check if user is setting key to its default value (harmless)
+        if ((isinstance(key_info[1], Callable) and
+            value == key_info[1](self)) or value == key_info[1]):
+            print("Warning: Setting Key '{0}' to its default value".format(key))
+
+        if self.keypairs.get(key):
+            print("Warning: Overwritting Key '{0}'".format(key))
+
+        self.keypairs[key] = value
+
+    def __str__(self):
+        if (len(self.keypairs) == 0):
+            return ""
+
+        namelist_str = " &{0}\n".format(self.name)
+
+        for key, value in self.keypairs.items():
+            if isinstance(value, str):
+                namelist_str += self.NAMELIST_TAB + "{0} = '{1}'\n".format(key, value)
+            else:
+                namelist_str += self.NAMELIST_TAB + "{0} = {1}\n".format(key, value)
+        namelist_str += " /\n"
+
+        return namelist_str
+
+# Control Namelist Class
 def isPositive(value):
     return value > 0.0
 
@@ -31,7 +147,7 @@ def defaultDiskIO(control):
         return 'medium'
 
 
-class Control:
+class Control(Namelist):
     """
     General variables for controlling the run
 
@@ -220,81 +336,3 @@ The same for calculation with finite electric fields
 (lelfield=.true.)
 """)}
 
-    def __init__(self):
-        self.name = "CONTROL"
-        self.keypairs = {}
-
-    def keyDescription(self, key):
-        """
-        Returns a nicely formated description of the key
-        for Espresso calculations
-        """
-        from collections import Callable
-        
-        value = Control.keys.get(key)
-        
-        keydesc_str = ""
-        if value:
-            keydesc_str = "Key: '{0}'\n".format(key)
-
-            current_keyvalue = self.keypairs.get(key, None)
-            keydesc_str += "Current Value\n   {0}\n".format(current_keyvalue)
-            keydesc_str += "Type\n   {0}\n".format(value[0].__name__)
-            if isinstance(value[1], Callable):
-                keydesc_str += """Default:
-   Function Name          : {0}
-   Current Function Value : {1}
-""".format(value[1].__name__, value[1](self))
-            else:
-                keydesc_str += """Default:
-   Value                  : {0}
-""".format(value[1])
-            if isinstance(value[2], Callable):
-                keydesc_str += """Valid Values:
-   Function Name          : {0}
-   Function (value)       -> (valueValid ? True : False)
-""".format(value[1].__name__)
-            elif value[2]:
-                keydesc_str += "Valid Values\n   " + " ".join(map(str, value[2])) + "\n"
-            else:
-                keydesc_str += "Valid Values\n   [Full Range]\n"
-
-            keydesc_str += "Description:\n" + value[3]
-        else:
-            keydesc_str = "Key {0} not a valid CONTROL variable\n".format(key)
-
-        return keydesc_str
-
-    def addKeypair(self, keypair):
-        """
-        Adds the keypair to the namelist Control
-        """
-        from collections import Callable
-        
-        key, value = keypair
-        key_info = self.keys.get(key)
-
-        # Check if key is valid
-        if not key_info:
-            error_str = "{0} {1} not valid key name".format(self.name, key)
-            raise Exception(error_str)
-
-        # Check if value is of correct type
-        if not isinstance(value, key_info[0]):
-            error_str = "{0} key {1} value {2} not of type {3}".format(self.name, key, value, key_info[0].__name__)
-            raise Exception(error_str)
-
-        # Check the range of value is correct
-        if (isinstance(key_info[2], Callable) and not key_info[2](value)) or (key_info[2] and value not in key_info[2]):
-            error_str = "'{0}' key '{1}' value '{2}' invalid range".format(self.name, key, value)
-            raise Exception(error_str)
-
-        # Check if user is setting key to its default value (harmless)
-        if ((isinstance(key_info[1], Callable) and
-             value == key_info[1](self)) or value == key_info[1]):
-            print("Warning: Setting Key '{0}' to its default value".format(key))
-
-        if self.keypairs.get(key):
-            print("Warning: Overwritting Key '{0}'".format(key))
-
-        self.keypairs[key] = value
