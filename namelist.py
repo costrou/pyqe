@@ -2,6 +2,8 @@
 Namelist
 
 These are dictionaries with configuration varaibles.
+
+# TODO implement to check for key "blank" only used when "key" set to true
 """
 import os
 from collections import Callable
@@ -137,6 +139,10 @@ class Namelist:
 
         """
         for key, key_info in self.keys.items():
+            if len(key_info) != 5:
+                error_str = "key '{0}' length wrong"
+                raise Exception(error_str.format(key))
+
             key_type, key_default, key_range, key_config, key_doc = key_info
 
             # Key Type. [str, float, int, bool]
@@ -210,7 +216,7 @@ class Namelist:
             raise Exception(error_str)
 
         # Check the range of value is correct
-        if (isinstance(key_range, Callable) and not key_range(value)) or \
+        if (isinstance(key_range, Callable) and not key_range(value)) and \
            (key_range and value not in key_range):
             error_str = "'{0}' key '{1}' value '{2}' invalid range".format(self.name, key, value)
             raise Exception(error_str)
@@ -304,8 +310,18 @@ class Namelist:
 
         return namelist_str
 
-def isPositive(self, value):
+# Functions to evaluate range
+def isPositive(value):
     return value > 0.0
+
+def isWithinOneOfZero(value):
+    return abs(value) <= 1.0
+
+def isBtwZeroOne(value):
+    return value >= 0.0 and value <= 1.0
+
+def isGTFour(value):
+    return value > 4
 
 class Control(Namelist):
     """Control Namelist.
@@ -400,8 +416,166 @@ class Control(Namelist):
         super().__init__(name, keypairs, keys)
 
 class System(Namelist):
+    """System Namelist
+
+    """
+
+    def _rangeIbrav(self, value):
+        return value in ([i for i in range(15)] + [-5])
+
+    def _rangeSpaceGroup(self, value):
+        return value in (i for i in range(231))
+
+    def _defaultEcutrho(self):
+        return 4.0 * self.getCurrentKeyValue('ecutwfc')
+
+    def _defaultEcutfock(self):
+        return self.getCurrentKeyValue('ecutrho')
+
+    def _defaultnqx1(self):
+        return self.getCurrentKeyValue('nr1')
+
+    def _defaultnqx2(self):
+        return self.getCurrentKeyValue('nr2')
+
+    def _defaultnqx3(self):
+        return self.getCurrentKeyValue('nr3')
+
+    def _checkIbrav(self, qe):
+        pass
+
+    def _checkCelldm(self, qe):
+        pass
+
+    def _checkA(self, qe):
+        pass
+
+    def _checkB(self, qe):
+        pass
+
+    def _checkC(self, qe):
+        pass
+
+    def _checkCosAB(self, qe):
+        pass
+
+    def _checkCosAC(self, qe):
+        pass
+
+    def _checkCosBC(self, qe):
+        pass
+
+    def _checkNat(self, qe):
+        pass
+
+    def _checkNtyp(self, qe):
+        pass
+
+    def _checkNri(self, qe):
+        if not qe.control.getSetKeyValue('nr1') and \
+           qe.control.getSetKeyValue('nr2') and \
+            qe.control.getSetKeyValue('nr3'):
+            return [False, "Must set 'nr1', 'nr2', and 'nr3'"]
+        return [True, None]
+
+    def _checkNris(self, qe):
+        if not qe.control.getSetKeyValue('nr1s') and \
+           qe.control.getSetKeyValue('nr2s') and \
+            qe.control.getSetKeyValue('nr3s'):
+            return [False, "Must set 'nr1s', 'nr2s', and 'nr3s'"]
+        return [True, None]
+
+    def _checkSpaceGroup(self, qe):
+        pass
+
     def __init__(self):
         name = "SYSTEM"
         keypairs = {}
-        keys = {}
+        keys = {
+            'ibrav': [int, None, self._rangeIbrav, self._checkIbrav],
+            'celldm(i)': [float, None, isPositive, self._checkCelldm],
+            'A': [float, None, isPositive, self._checkA],
+            'B': [float, None, isPositive, self._checkB],
+            'C': [float, None, isPositive, self._checkC],
+            'cosAB': [float, None, isWithinOneOfZero, self._checkCosAB],
+            'cosAC': [float, None, isWithinOneOfZero, self._checkCosAC],
+            'cosBC': [float, None, isWithinOneOfZero, self._checkCosBC],
+            'nat': [int, None, isPositive, self._checkNat],
+            'ntyp': [int, None, isPositive, self._checkNtyp],
+            'nbnd': [int, None, isGTFour, None], #TODO default nbnd (insulator)
+            'tot_charge': [float, 0.0, (), None],
+            'tot_magnetization': [float, -1.0, isWithinOneOfZero, None],
+            'starting_magnetization(i)': [float, None, isWithinOneOfZero, None],
+            'ecutwfc': [float, None, isPositive, None],
+            'ecutrho': [float, self._defaultEcutrho, isPositive, None],
+            'ecutfock': [float, self._defaultEcutfock, isPositive, None],
+            'nr1': [int, None, isPositive, self._checkNri],
+            'nr2': [int, None, isPositive, self._checkNri],
+            'nr3': [int, None, isPositive, self._checkNri],
+            'nr1s': [int, None, isPositive, self._checkNris],
+            'nr2s': [int, None, isPositive, self._checkNris],
+            'nr3s': [int, None, isPositive, self._checkNris],
+            'nosym': [bool, False, (), None],
+            'nosym_evc': [bool, False, (), None],
+            'noinv': [bool, False, (), None],
+            'no_t_rev': [bool, False, (), None],
+            'force_symmorphic': [bool, False, (), None],
+            'use_all_frac': [bool, False, (), None],
+            'occupations': [str, None, ('smearing', 'tetrahedra', 'fixed', 'from_input'), None],
+            'one_atom_occupations': [bool, False, (), None],
+            'starting_spin_angle': [bool, False, (), None],
+            'degauss': [float, 0.0, isPositive, None],
+            'smearing': [str, 'gaussian', ('gaussian', 'methfessel-paxton', 'm-p', 'mp', 'mazari-vanderbilt', 'cold', 'm-v', 'mv', 'fermi-dirac', 'f-d', 'fd'), None],
+            'nspin': [int, 1, (1, 2, 4), None],
+            'noncolin': [bool, False, (), None],
+            'ecfixed': [float, 0.0, isPositive, None],
+            'qcutz': [float, 0.0, isPositive, None],
+            'q2sigma': [float, 0.1, isPositive, None],
+            'input_dft': [str, None, (), None],
+            'exx_fraction': [float, None, isBtwZeroOne, None],
+            'screening_parameter': [float, 0.106, (), None],
+            'exxdiv_treatment': [str, 'gygi-baldereshi', ('gygi-baldereschi', 'vcut_spherical', 'vcut_ws', 'none'), None],
+            'x_gamma_extrapolation': [bool, True, (), None],
+            'ecutvcut': [float, 0.0, isPositive, None],
+            'nqx1': [int, self._defaultnqx1, isPositive, None],
+            'nqx2': [int, self._defaultnqx2, isPositive, None],
+            'nqx3': [int, self._defaultnqx3, isPositive, None],
+            'lda_plus_u': [bool, False, (), None],
+            'lda_plus_u_kind': [int, 0, (0, 1), None],
+            'Hubbard_U(i)': [float, 0.0, (), None],  #TODO valid range TODO check
+            'Hubbard_J0(i)': [float, 0.0, (), None], #TODO valid range TODO check
+            'Hubbard_alpha(i)': [float, 0.0, (), None], #TODO valid range TODO check
+            'Hubbard_beta(i)': [float, 0.0, (), None], #TODO valid range TODO check
+            'Hubbard_J(i,ityp)': [float, 0.0, (), None], #TODO valid range TODO check
+            'starting_ns_eigenvalue(m,ispin,I)': [float, -1.0, (), None], #TODO valid range TODO check
+            'U_projection_type': [str, 'atomic', ('atomic', 'ortho-atomic', 'norm-atomic', 'file', 'pseduo'), None],
+            'edir': [int, None, (1, 2, 3), None],
+            'emaxpos': [float, 0.5, isBtwZeroOne, None],
+            'eopreg': [float, 0.1, isBtwZeroOne, None], 
+            'eamp': [float, 0.001, (), None], #TODO range
+            'angle1(i)': [float, None, (), None], #TODO check (1 .. ntyp)
+            'angle2(i)': [float, None, (), None], #TODO check (1 .. ntyp)
+            'constrained_magnetization': [str, 'none', ('none', 'total', 'atomic', 'total direction', 'atomic direction'), None],
+            'fixed_magnetization(i)': [float, 0.0, (), None], #check i (1 .. 3)
+            'lambda': [float, 1.0, (), None],
+            'report': [int, 1, isPositive, None],
+            'lspinorb': [bool, None, (), None], #TODO default not specified in docs
+            'assume_isolated': [str, 'none', ('none', 'makov-payne', 'martyna-tuckerman', 'esm'), None],
+            'esm_bc': [str, 'pbc', ('pbc', 'bc1', 'bc2', 'bc3'), None],
+            'esm_w': [float, 0.0, (), None],
+            'esm_efield': [float , 0.0, (), None],
+            'esm_nfit': [int, 4, (), None],
+            'vdw_corr': [str, 'none', ('grimme-d2', 'Grimme-D2', 'DFT-D', 'dft-d', 'TS', 'ts', 'ts-vdw', 'ts-vdW', 'tkatchenko-scheffler', 'XDM', 'xdm'), None],
+            'london': [bool, False, (), None],
+            'london_s6': [float, 0.75, (), None],
+            'london_rcut': [float, 200.0, (), None],
+            'xdm': [bool, False, (), None],
+            'xdm_a1': [float, 0.6836, (), None],
+            'xdm_a2': [float, 1.5045, (), None],
+            'space_group': [int, 0, self._rangeSpaceGroup, self._checkSpaceGroup],
+            'uniqueb': [bool, False, (), None],
+            'origin_choice': [int, 1, (1, 2, 3), None], # TODO Maybe there are more possible origins?
+            'rhombohedral': [bool, True, (), None]
+        }
+
         super().__init__(name, keypairs, keys)

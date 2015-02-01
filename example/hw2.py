@@ -12,14 +12,14 @@ def create_input():
     from espresso import QE
     qe = QE()
     qe.control.addKeypairs({
-#        'calculation': 'scf',
-#        'restart_mode': 'from_scratch',
+        'calculation': 'scf',
+        'restart_mode': 'from_scratch',
         'pseudo_dir': './',
         'prefix': 'cu'
     })
-    qe.system.update({
+    qe.system.addKeypairs({
         'ibrav': 2,
-        'celldm(1)': 6.73,
+        'celldm(i)': 6.73, #Yeah I had to lie for now
         'nat': 1,
         'ntyp': 1,
         'ecutwfc': 25.0,
