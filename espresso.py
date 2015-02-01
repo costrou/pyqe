@@ -134,7 +134,7 @@ class QE:
         Sometimes they will need access to global information.
         (not sure how to handle this yet)
         """
-        self.control.validate()
+        self.control.validate(self)
         # Not Implemented
         # self.system.validate()
         # self.electrons.validate()
