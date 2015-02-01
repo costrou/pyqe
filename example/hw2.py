@@ -14,7 +14,7 @@ def create_input():
     qe.control.addKeypairs({
 #        'calculation': 'scf',
 #        'restart_mode': 'from_scratch',
-        'pseudo_dir': './asdfasdf.sdf',
+        'pseudo_dir': './',
         'prefix': 'cu'
     })
     qe.system.update({

@@ -6,6 +6,8 @@ These are dictionaries with configuration varaibles.
 import os
 from collections import Callable
 
+
+
 class Namelist:
     """
     Defines the partial class implementation of each namelist
@@ -13,10 +15,12 @@ class Namelist:
 
     NAMELIST_SPACE = "    "
 
-    def __init__(self):
-        self.keys = {}
-        self.keypairs = {}
-        self.name = ""
+    def __init__(self, name, keypairs, keys):
+        self.name = name
+        self.keypairs = keypairs
+
+        self.keys = keys
+        self.validateKeyDescriptions()
 
     def getKeyDescription(self, key):
         """Returns: a nicely formated string description of the key for
@@ -115,6 +119,42 @@ class Namelist:
             return True
         else:
             return False
+
+    def validateKeyDescriptions(self):
+        """**For Developer** 
+        Checking the of key description arrays. This is
+        really only usefull to the developer and ensure that errors
+        were not made.  probably should create a test folder that runs
+        this rather that have this function.
+
+        """
+        for key, key_info in self.keys.items():
+            key_type, key_default, key_range, key_config, key_doc = key_info
+
+            # Key Type. [str, float, int, bool]
+            if key_type not in [str, float, int, bool]:
+                error_str = "key '{0}' [0] type wrong"
+                raise Exception(error_str.format(key))
+
+            # Key Default Value Type [Key Type, None, or function]
+            if not isinstance(key_default, (key_type, Callable, type(None))):
+                error_str = "key '{0}' [1] default wrong"
+                raise Exception(error_str.format(key))
+
+            # Key Range Type [Tuple list or Function]
+            if not isinstance(key_range, (tuple, Callable)):
+                error_str = "key '{0}' [2] range wrong"
+                raise Exception(error_str.format(key))
+
+            # Key Config Type [None or Function]
+            if not isinstance(key_config, (Callable, type(None))):
+                error_str = "key '{0}' [3] config wrong"
+                raise Exception(error_str.format(key))
+
+            # Key Doc String Type [str]
+            if not isinstance(key_doc, str):
+                error_str = "key '{0}' [4] doc wrong"
+                raise Exception(error_str.format(key))
 
     def validateKeyConfig(self, key, qe):
         """Determines if key is properly configured. Notice we need the
@@ -321,187 +361,39 @@ class Control(Namelist):
 
 
     def __init__(self):
-        self.name = "CONTROL"
-        self.keypairs = {}
-        self.keys = {
-            'calculation': (str, 'scf', ('scf', 'nscf', 'bands', 'relax', 'md', 'vc-relax'), None, """
-A string describing the task to be performed
-vc = variable cell
-"""),
-            'title': (str, '', (), None, """
-reprinted on output
-"""),
-            'verbosity': (str, 'low', ('low', 'high'), None, """
-Currently two verbosity levels are implemented:
-  'high' and 'low'. 'debug' and 'medium' have the same
-  effect as 'high'; 'default' and 'minimal', as 'low'
-"""),
-            'restart_mode': ( str, 'from_scratch', ('from_scratch', 'restart'), None, """
-'from_scratch'  : from scratch. This is the normal way
-                  to perform a PWscf calculation
-'restart'       : from previous interrupted run. Use this
-                  switch only if you want to continue an
-                  interrupted calculation, not to start a
-                  new one, or to perform non-scf calculations.
-                  Works only if the calculation was cleanly
-                  stopped using variable "max_seconds", or
-                  by user request with an "exit file" (i.e.:
-                  create a file "prefix".EXIT, in directory
-                  "outdir"; see variables "prefix", "outdir")
-"""),
-            'wf_collect': (bool, False, (), None, """
-This flag controls the way wavefunctions are stored to disk :
+        name = "CONTROL"
+        keypairs = {}
+        keys = {
+            'calculation': [str, 'scf', ('scf', 'nscf', 'bands', 'relax', 'md', 'vc-relax'), None],
+            'title': [str, '', (), None],
+            'verbosity': [str, 'low', ('low', 'high'), None],
+            'restart_mode': [ str, 'from_scratch', ('from_scratch', 'restart'), None],
+            'wf_collect': [bool, False, (), None],
+            'nstep': [int, self._defaultNStep, (), None],
+            'iprint': [int, None, (), None],
+            'tstress': [bool, False, (), None],
+            'tprnfor': [bool, self._defaultTprnfor , (), None],
+            'dt': [float, 20.0, isPositive, None],
+            'outdir': [str, self._defaultOutdir, (), self._checkOutdir],
+            'wfcdir': [str, self._defaultOutdir, (), self._checkWfcdir],
+            'prefix': [str, 'pwscf', (), None],
+            'lkpoint_dir': [bool, True, (), None],
+            'max_seconds': [float, 1.0e7, isPositive, None],
+            'etot_conv_thr': [float, 1.0e-4, isPositive, None],
+            'forc_conv_thr': [float, 1.0e-4, isPositive, None],
+            'disk_io': [str, self._defaultDiskIO, ('none', 'low', 'medium', 'high'), None],
+            'pseudo_dir': [str, self._defaultPseudoDir, (), self._checkPseudoDir],
+            'tefield': [bool, False, (), None],
+            'dipfield': [bool, False, (), None],
+            'lelfield': [bool, False, (), None],
+            'nberrycyc': [int, 1, isPositive, None],
+            'lorbm': [bool, False, (), None],
+            'lberry': [bool, False, (), None],
+            'gdir': [int, None, (1, 2, 3), None],
+            'nppstr': [int, None, isPositive, None]
+        }
 
-True    collect wavefunctions from all processors, store them
-        into the output data directory "outdir"/"prefix".save,
-        one wavefunction per k-point in subdirs K000001/,
-        K000001/, etc.. Use this if you want wavefunctions
-        to be readable on a different number of processors.
+        from pwdocs import addDocsToKeys
+        addDocsToKeys(name, keys)
 
-False   do not collect wavefunctions, leave them in temporary
-        local files (one per processor). The resulting format
-        will be readable only by jobs running on the same
-        number of processors and pools. Requires less I/O
-        than the previous case.
-
-Note that this flag has no effect on reading, only on writing.
-"""),
-            'nstep': (int, self._defaultNStep, (), None, """
-number of ionic + electronic steps
-"""),
-            'iprint': (int, None, (), None, """
-band energies are written every "iprint" iterations
-"""),
-            'tstress': (bool, False, (), None, """
-calculate stress. It is set to True automatically if
-calculation='vc-md' or 'vc-relax'
-"""),
-            'tprnfor': (bool, self._defaultTprnfor , (), None, """
-calculate forces. It is set to .TRUE. automatically if
-calculation='relax','md','vc-md'
-"""),
-            'dt': (float, 20.0, isPositive, None, """
-time step for molecular dynamics, in Rydberg atomic units
-(1 a.u.=4.8378 * 10^-17 s : beware, the CP code uses
- Hartree atomic units, half that much!!!)
-"""),
-            'outdir': (str, self._defaultOutdir, (), self._checkOutdir, """
-input, temporary, output files are found in this directory,
-see also "wfcdir"
-"""),
-            'wfcdir': (str, self._defaultOutdir, (), self._checkWfcdir, """
-this directory specifies where to store files generated by
-each processor (*.wfc{N}, *.igk{N}, etc.). Useful for
-machines without a parallel file system: set "wfcdir" to
-a local file system, while "outdir" should be a parallel
-or networkfile system, visible to all processors. Beware:
-in order to restart from interrupted runs, or to perform
-further calculations using the produced data files, you
-may need to copy files to "outdir". Works only for pw.x.
-"""),
-            'prefix': (str, 'pwscf', (), None, """
-prepended to input/output filenames:
-prefix.wfc, prefix.rho, etc.
-"""),
-            'lkpoint_dir': (bool, True, (), None, """
-If .false. a subdirectory for each k_point is not opened
-in the "prefix".save directory; Kohn-Sham eigenvalues are
-stored instead in a single file for all k-points. Currently
-doesn't work together with "wf_collect"
-"""),
-            'max_seconds': (float, 1.0e7, isPositive, None, """
-jobs stops after "max_seconds" CPU time. Use this option
-in conjunction with option "restart_mode" if you need to
-split a job too long to complete into shorter jobs that
-fit into your batch queues. Default is 150 days.
-"""),
-            'etot_conv_thr': (float, 1.0e-4, isPositive, None, """
-convergence threshold on total energy (a.u) for ionic
-minimization: the convergence criterion is satisfied
-when the total energy changes less than "etot_conv_thr"
-between two consecutive scf steps. Note that "etot_conv_thr"
-is extensive, like the total energy.
-See also "forc_conv_thr" - both criteria must be satisfied
-"""),
-            'forc_conv_thr': (float, 1.0e-4, isPositive, None, """
-convergence threshold on forces (a.u) for ionic minimization:
-the convergence criterion is satisfied when all components of
-all forces are smaller than "forc_conv_thr".
-See also "etot_conv_thr" - both criteria must be satisfied
-"""),
-            'disk_io': (str, self._defaultDiskIO, ('none', 'low', 'medium', 'high'), None, """
-Specifies the amount of disk I/O activity
-'high':   save all data to disk at each SCF step
-
-'medium': save wavefunctions at each SCF step unless
-          there is a single k-point per process (in which
-          case the behavior is the same as 'low')
-
-'low' :   store wfc in memory, save only at the end
-
-'none':   do not save anything, not even at the end
-          ('scf', 'nscf', 'bands' calculations; some data
-           may be written anyway for other calculations)
-
-Default is 'low' for the scf case, 'medium' otherwise.
-Note that the needed RAM increases as disk I/O decreases!
-It is no longer needed to specify 'high' in order to be able
-to restart from an interrupted calculation (see "restart_mode")
-but you cannot restart in disk_io='none'
-"""),
-            'pseudo_dir': (str, self._defaultPseudoDir, (), self._checkPseudoDir, """
-directory containing pseudopotential files
-"""),
-            'tefield': (bool, False, (), None, """
-If True a saw-like potential simulating an electric field
-is added to the bare ionic potential. See variables "edir",
-"eamp", "emaxpos", "eopreg" for the form and size of
-the added potential.
-"""),
-            'dipfield': (bool, False, (), None, """
-If True and tefield=True a dipole correction is also
-added to the bare ionic potential - implements the recipe
-of L. Bengtsson, PRB 59, 12301 (1999). See variables "edir",
-"emaxpos", "eopreg" for the form of the correction. Must
-be used ONLY in a slab geometry, for surface calculations,
-with the discontinuity FALLING IN THE EMPTY SPACE.
-"""),
-            'lelfield': (bool, False, (), None, """
-If .TRUE. a homogeneous finite electric field described
-through the modern theory of the polarization is applied.
-This is different from "tefield=.true." !
-"""),
-            'nberrycyc': (int, 1, isPositive, None, """
-In the case of a finite electric field  ( lelfield == .TRUE. )
-it defines the number of iterations for converging the
-wavefunctions in the electric field Hamiltonian, for each
-external iteration on the charge density
-"""),
-
-            'lorbm': (bool, False, (), None, """
-If .TRUE. perform orbital magnetization calculation.
-If finite electric field is applied (lelfield=.true.)
-only Kubo terms are computed
-[for details see New J. Phys. 12, 053032 (2010)].
-The type of calculation is 'nscf' and should be performed
-on an automatically generated uniform grid of k points.
-Works ONLY with norm-conserving pseudopotentials.
-"""),
-            'lberry': (bool, False, (), None, """
-If .TRUE. perform a Berry phase calculation
-See the header of PW/src/bp_c_phase.f90 for documentation
-"""),
-            'gdir': (int, None, (1, 2, 3), None, """
-For Berry phase calculation: direction of the k-point
-strings in reciprocal space. Allowed values: 1, 2, 3
-1=first, 2=second, 3=third reciprocal lattice vector
-For calculations with finite electric fields
-(lelfield==.true.) "gdir" is the direction of the field
-"""),
-            'nppstr': (int, None, isPositive, None, """
-For Berry phase calculation: number of k-points to be
-calculated along each symmetry-reduced string
-The same for calculation with finite electric fields
-(lelfield=.true.)
-""")}
-
+        super().__init__(name, keypairs, keys)
