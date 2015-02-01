@@ -5,8 +5,11 @@ with the already done documentation (autoupdating then)
 """
 
 def addDocsToKeys(name, keys):
+    """Adds doc strings to key info lists
+    """
     doc_map = {
-        "CONTROL": control_doc
+        "CONTROL": control_doc,
+        "SYSTEM": system_doc
         }
 
     namelist_doc = doc_map.get(name)
@@ -21,6 +24,8 @@ def addDocsToKeys(name, keys):
                 raise Exception(error_str.format(key))
             else:
                 info.append(key_doc)
+
+system_doc = {}
 
 control_doc = {
     'calculation': """

@@ -6,11 +6,17 @@ These are dictionaries with configuration varaibles.
 import os
 from collections import Callable
 
-
-
 class Namelist:
     """
     Defines the partial class implementation of each namelist
+
+    The keys info dictionary:
+    key-name :
+      _type = [ str, float, int, bool ]
+      default value = [ function(self) returns value of _type, value of _type, None ]
+      range = [ (), (value1, value2, ...), function(value) ]
+      config = [ function(global QE object) returns [True/False, str] , None | doc string ]
+      doc string = str describing key
     """
 
     NAMELIST_SPACE = "    "
@@ -19,6 +25,8 @@ class Namelist:
         self.name = name
         self.keypairs = keypairs
 
+        from pwdocs import addDocsToKeys
+        addDocsToKeys(name, keys)
         self.keys = keys
         self.validateKeyDescriptions()
 
@@ -300,11 +308,9 @@ def isPositive(self, value):
     return value > 0.0
 
 class Control(Namelist):
-    """
-    General variables for controlling the run
+    """Control Namelist.
 
-    The keys tuple:
-    key-name | type | default value | available values (may be function) | doc string for key
+
     """
 
     def _defaultNStep(self):
@@ -359,7 +365,6 @@ class Control(Namelist):
     def _checkWfcdir(self, qe):
         return self._checkDirectory("wfcdir")
 
-
     def __init__(self):
         name = "CONTROL"
         keypairs = {}
@@ -392,8 +397,11 @@ class Control(Namelist):
             'gdir': [int, None, (1, 2, 3), None],
             'nppstr': [int, None, isPositive, None]
         }
+        super().__init__(name, keypairs, keys)
 
-        from pwdocs import addDocsToKeys
-        addDocsToKeys(name, keys)
-
+class System(Namelist):
+    def __init__(self):
+        name = "SYSTEM"
+        keypairs = {}
+        keys = {}
         super().__init__(name, keypairs, keys)
