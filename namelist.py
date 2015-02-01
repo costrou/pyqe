@@ -11,89 +11,139 @@ class Namelist:
     Defines the partial class implementation of each namelist
     """
 
-    NAMELIST_TAB = "    "
+    NAMELIST_SPACE = "    "
 
     def __init__(self):
         self.keys = {}
         self.keypairs = {}
         self.name = ""
 
-    def keyDescription(self, key):
+    def getKeyDescription(self, key):
+        """Returns: a nicely formated string description of the key for
+        Espresso calculations. Otherwise raises Exception
+
+        Ensures: key is valid
         """
-        Returns a nicely formated description of the key
-        for Espresso calculations
-        """
-        value = self.keys.get(key)
+        if not self.isDefinedKey(key):
+            error_str += "{0} key: {1} not valid key".format(self.name, key)
+            raise Exception(error_str)
 
-        keydesc_str = ""
-        if value:
-            keydesc_str = "Key: '{0}'\n".format(key)
+        key_type, key_default, key_range, key_doc = key_info.getKeyInfo()
 
-            current_keyvalue = self.keypairs.get(key, None)
-            keydesc_str += "Current Value\n   {0}\n".format(current_keyvalue)
-            keydesc_str += "Type\n   {0}\n".format(value[0].__name__)
-            if isinstance(value[1], Callable):
-                keydesc_str += """Default:
-   Function Name          : {0}
-   Current Function Value : {1}
-""".format(value[1].__name__, value[1]())
-            else:
-                keydesc_str += """Default:
-   Value                  : {0}
-""".format(value[1])
-            if isinstance(value[2], Callable):
-                keydesc_str += """Valid Values:
-   Function Name          : {0}
-   Function (value)       -> (valueValid ? True : False)
-""".format(value[1].__name__)
-            elif value[2]:
-                keydesc_str += "Valid Values\n   " + " ".join(map(str, value[2])) + "\n"
-            else:
-                keydesc_str += "Valid Values\n   [Full Range]\n"
+        ## Key name
+        keydesc_str = "Key: '{0}'\n".format(key)
 
-            keydesc_str += "Description:\n" + value[3]
+        ## Key set value (set by user)
+        keydesc_str += "Set Value\n   '{0}'".format(self.getSetKeyValue(key))
+
+        ## Key value type allowed
+        keydesc_str += "Type\n   '{0}'".format(key_type.__name__)
+
+        ## Key default value
+        keydesc_str += "Default\n"
+        if isinstance(key_default, Callable):
+            keydesc_str += "   Function Name '{0}'".format(key_default.__name__)
+        keydesc_str += "   Value '{0}'\n".format(self.getKeyDefaultValue(key))
+
+        keydesc_str += "Valid Values\n"
+        if isinstance(key_range, Callable):
+            keydesc_str += "   Function Name '{0}'\n".format(key_range.__name__)
+        elif key_range:
+            keydesc_str += "   Range: [{0}]\n".format(", ".join(map(str, key_range)))
         else:
-            keydesc_str = "Key {0} not a valid CONTROL variable\n".format(key)
+            keydesc_str += "   Full Range\n"
+
+        keydesc_str += "Description:\n" + key_doc
 
         return keydesc_str
 
-    def getDefaultKeyValue(self, key):
-        value = self.keys.get(key)
-        if isinstance(value[1], Callable):
-            return value[1]()
-        return value[1]
+    def getKeyInfo(self, key):
+        """Returns: Info regarding key.
 
+        Assumes: valid key
 
-    def validate_keypair(self, keypair):
         """
-        Ensures that keypair is valid for namelist
+        return self.keys.get(key)
+
+    def getSetKeyValue(self, key):
+        """Returns the key value if it has been set by the user. Otherwise
+        returns None.
+
+        Assumes: valid key
+
+        """
+        return self.keypairs.get(key)
+
+    def getCurrentKeyValue(self, key):
+        """Returns: key value if set by the user. Otherwise the current
+        default value of key (getDefaultKeyValue).
+
+        Assumes: valid key
+
+        """
+        return self.keypairs.get(key, self.getDefaultKeyValue(key))
+
+    def getDefaultKeyValue(self, key):
+        """Returns: current default value of key.
+
+        Assumes: valid key
+
+        **Remember for some keys, their default value changes with
+        respect to other keys, or environment variables
+        (eg. key:'calculation')**
+
+        """
+        value_default = self.keys.get(key)[1]
+        if isinstance(value_default, Callable):
+            return value_default()
+        return value_default
+
+    def isDefinedKey(self, key):
+        """Returns: if key is defined for given namelist
+
+        """
+        if self.keys.get(key):
+            return True
+        else:
+            return False
+
+    def validateKeypair(self, keypair):
+        """Returns: if keypair is valid exception otherwise
+
+        Ensures: keypair is valid for namelist
+
         """
         if not len(keypair) == 2 or not isinstance(keypair[0], str):
             error_str = "keypair consist of ['str', value]"
             raise Exception(error_str)
 
         key, value = keypair
-        key_info = self.keys.get(key)
 
         # Check if key is valid
-        if not key_info:
-            error_str = "{0} '{1}' not valid key name".format(self.name, key)
+        if not self.isDefinedKey(key):
+            error_str = "{0} key: '{1}' invalid name".format(self.name, key)
             raise Exception(error_str)
 
+        key_type, key_default, key_range, key_doc = self.getKeyInfo(key)
+
         # Check if value is of correct type
-        if not isinstance(value, key_info[0]):
-            error_str = "{0} key '{1}' value '{2}' not of type {3}".format(self.name, key, value, key_info[0].__name__)
+        if not isinstance(value, key_type):
+            error_str = "{0} key: '{1}' value '{2}' not type {3}".format(self.name, key, value, key_type.__name__)
             raise Exception(error_str)
 
         # Check the range of value is correct
-        if (isinstance(key_info[2], Callable) and not key_info[2](value)) or (key_info[2] and value not in key_info[2]):
+        if (isinstance(key_range, Callable) and not key_range(value)) or \
+           (key_range and value not in key_range):
             error_str = "'{0}' key '{1}' value '{2}' invalid range".format(self.name, key, value)
             raise Exception(error_str)
 
 
     def addKeypairs(self, keypairs):
-        """
-        Add List, Tuple, or Dictionary of keypairs to the namelist.
+        """Adds List, Tuple, or Dictionary of keypairs to the namelist.
+        Exception otherwise. Keypairs up to Exception are still added.
+
+        Ensures: keypairs are valid keypairs are added to dictionary
+
         """
         if isinstance(keypairs, (list, tuple)):
             for keypair in keypairs:
@@ -102,38 +152,58 @@ class Namelist:
             for keypair in keypairs.items():
                 self.addKeypair(keypair)
         else:
-            raise Exception("Keypairs must be of type List, Tuple, or Dictionary")
+            raise Exception("Keypairs must be type List, Tuple, or Dictionary")
 
     def addKeypair(self, keypair):
+        """Adds valid List or Tuple keypair to the namelist.  Exception
+        otherwise.
+
+        Ensures: keypair is valid
+                 keypair is added to dictionary
+
         """
-        Adds List or Tuple of keypairs to the namelist.
-        """
-        self.validate_keypair(keypair)
-        
+        self.validateKeypair(keypair)
+
         key, value = keypair
         key_info = self.keys.get(key)
 
         # Check if user is setting key to its default value (harmless)
-        if ((isinstance(key_info[1], Callable) and
-             value == key_info[1]()) or value == key_info[1]):
+        if value == self.getDefaultKeyValue(key):
             print("Warning: Setting Key '{0}' to its default value".format(key))
 
-        if self.keypairs.get(key):
+        if self.getSetKeyValue(key):
             print("Warning: Overwritting Key '{0}'".format(key))
 
         self.keypairs[key] = value
 
+    def keypairToString(self, keypair):
+        """Assumes: keypair is a valid Keypair
+
+        Returns: namelist string representation of keypair
+
+        """
+        key, value = keypair
+
+        keypair_str = "{0} = ".format(key)
+        if isinstance(value, str):
+            keypair_str += "'{1}'".format(key, value)
+        else:
+            keypair_str += "{1}".format(key, value)
+
+        return keypair_str
+
     def __str__(self):
-        if (len(self.keypairs) == 0):
+        if len(self.keypairs) == 0:
             return ""
 
         namelist_str = " &{0}\n".format(self.name)
 
-        for key, value in self.keypairs.items():
-            if isinstance(value, str):
-                namelist_str += self.NAMELIST_TAB + "{0} = '{1}'\n".format(key, value)
-            else:
-                namelist_str += self.NAMELIST_TAB + "{0} = {1}\n".format(key, value)
+        # Iterate through key value
+        for keypair in self.keypairs.items():
+            namelist_str += self.NAMELIST_SPACE
+            namelist_str += self.keypairToString(keypair)
+            namelist_str += "\n"
+
         namelist_str += " /\n"
 
         return namelist_str
@@ -255,13 +325,13 @@ may need to copy files to "outdir". Works only for pw.x.
             'prefix': (str, 'pwscf', (), """
 prepended to input/output filenames:
 prefix.wfc, prefix.rho, etc.
-"""),             
+"""),
             'lkpoint_dir': (bool, True, (), """
 If .false. a subdirectory for each k_point is not opened
 in the "prefix".save directory; Kohn-Sham eigenvalues are
 stored instead in a single file for all k-points. Currently
 doesn't work together with "wf_collect"
-"""),             
+"""),
             'max_seconds': (float, 1.0e7, isPositive, """
 jobs stops after "max_seconds" CPU time. Use this option
 in conjunction with option "restart_mode" if you need to
@@ -303,7 +373,7 @@ to restart from an interrupted calculation (see "restart_mode")
 but you cannot restart in disk_io='none'
 """),
             'pseudo_dir': (str, self._defaultPseudoDir, (), """
-directory containing pseudopotential files             
+directory containing pseudopotential files
 """),
             'tefield': (bool, False, (), """
 If True a saw-like potential simulating an electric field
@@ -330,7 +400,7 @@ it defines the number of iterations for converging the
 wavefunctions in the electric field Hamiltonian, for each
 external iteration on the charge density
 """),
-             
+
             'lorbm': (bool, False, (), """
 If .TRUE. perform orbital magnetization calculation.
 If finite electric field is applied (lelfield=.true.)
@@ -339,7 +409,7 @@ only Kubo terms are computed
 The type of calculation is 'nscf' and should be performed
 on an automatically generated uniform grid of k points.
 Works ONLY with norm-conserving pseudopotentials.
-"""),             
+"""),
             'lberry': (bool, False, (), """
 If .TRUE. perform a Berry phase calculation
 See the header of PW/src/bp_c_phase.f90 for documentation
@@ -364,7 +434,7 @@ The same for calculation with finite electric fields
         """
         # This check should NOT fail
         for keypair in self.keypairs.items():
-            self.validate_keypair(keypair)
+            self.validateKeypair(keypair)
 
         # There are no requirements of this class.
 
@@ -372,7 +442,7 @@ The same for calculation with finite electric fields
         keys = ['pseudo_dir', 'outdir', 'wfcdir']
 
         for key in keys:
-            directory = self.keypairs.get(key)
+            directory = self.getSetKeyValue(key)
             if directory:
                 if not os.path.isdir(directory):
                     raise Exception("Directory '{0}' for {1} does not exist".format(directory, key))
