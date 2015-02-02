@@ -2,15 +2,14 @@
 cutoff energies and kpoints. Changing these parameters affects the
 accuracy of the calculations
 """
+import sys
+sys.path.append("/home/costrouc/work/projects/python-qe/")
+from pyqe import QE
 
 def create_input():
     """
     As a rough starting template we will use dictionaries
     """
-    import sys
-    sys.path.append("../")
-
-    from espresso import QE
     qe = QE()
     qe.control.addKeypairs({
         'calculation': 'scf',

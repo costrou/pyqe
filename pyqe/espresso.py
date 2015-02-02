@@ -10,11 +10,8 @@ for details on the input format to PW
 
 
 """
-# Global
-QE_TAB = "    "
-
-from cards import AtomicSpecies, AtomicPositions, KPoints, CellParameters
-from namelist import Control, System, Electrons, Ions, Cell
+from pyqe.cards import AtomicSpecies, AtomicPositions, KPoints, CellParameters
+from pyqe.namelists import Control, System, Electrons, Ions, Cell
 
 class QE:
     """
@@ -148,43 +145,5 @@ class QE:
         # self.occupations.validate()
         # self.constrains.validate()
         # self.atomicforces.validate()
-
-
-class NameList:
-    """
-    A class for representing QE NameLists.
-
-    Acceptable names:
-    Control: general variables controlling the run
-    System: structural information on the system
-    Electrons: electronic variables (smearing, self-consistency)
-    Ions (optional): ionic variables relaxation dynamics
-    Cell (optional): variable-cell optimization
-    """
-    def __init__(self, name):
-        self.name = name
-        self.keypairs = {}
-
-    def __str__(self):
-        if (len(self.keypairs) == 0):
-            return ""
-
-        namelist_str = " &{0}\n".format(self.name)
-
-        for key, value in self.keypairs.items():
-            if (type(value) == str):
-                namelist_str += QE_TAB + "{0} = '{1}'\n".format(key, value)
-            else:
-                namelist_str += QE_TAB + "{0} = {1}\n".format(key, value)
-        namelist_str += " /\n"
-
-        return namelist_str
-
-    def update(self, keypairs):
-        """
-        Adds keypairs to current dictionary.
-        Overides current keypair if any conflict.
-        """
-        self.keypairs.update(keypairs)
 
 
