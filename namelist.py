@@ -642,6 +642,9 @@ class System(Namelist):
         super().__init__(name, keypairs, keys)
 
 class Electrons(Namelist):
+    """Electrons Namelist
+
+    """
     def _defaultStartingpot(self):
         pass #TODO needs control.calculation 
     
@@ -674,7 +677,7 @@ class Electrons(Namelist):
         super().__init__(name, keypairs, keys)
 
 class Ions(Namelist):
-    """System Namelist
+    """Ions Namelist
 
     """
     def _defaultIonDynamics():
@@ -710,4 +713,21 @@ class Ions(Namelist):
             'w_2': [0, float, 0.5, None, None] #TODO Check only in bfgs calc
         }
         super().__init__(name, keypairs, keys)
-    
+
+class Cell(Namelist):
+    """Cell Namelist"""
+    def _defaultCellDynamics(self):
+        pass #TODO needs qe.control to set default
+
+    def __init__(self):
+        name = "CELL"
+        keypairs = {}
+        keys = {
+            'cell_dynamics': [0, str, self._defaultCellDynamics, ('none', 'sd', 'damp-pr', 'bfgs', 'pr', 'w'), None],
+            'press': [0, float, 0.0, None, None],
+            'wmass': [0, float, None, isPositive, None], #TODO Check onlin if vc-md or vd-relax
+            'cell_factor': [0, float, 1.2, None, None],
+            'press_conv_thr': [0, float, 0.5, None, None],
+            'cell_dofree': [0, str, 'all', ('all', 'x', 'y', 'z', 'xy', 'xz', 'yz', 'xyz', 'shape', 'volume', '2Dxy', '2Dshape'), None]
+        }
+        super().__init__(name, keypairs, keys)

@@ -11,7 +11,8 @@ def addDocsToKeys(name, keys):
         "CONTROL": control_doc,
         "SYSTEM": system_doc,
         "ELECTRONS": electrons_doc,
-        "IONS": ions_doc
+        "IONS": ions_doc,
+        "CELL": cell_doc
         }
 
     namelist_doc = doc_map.get(name)
@@ -26,6 +27,67 @@ def addDocsToKeys(name, keys):
                 raise Exception(error_str.format(key))
             else:
                 info.append(key_doc)
+
+cell_doc = {
+    'cell_dynamics': """
+Specify the type of dynamics for the cell.
+For different type of calculation different possibilities
+are allowed and different default values apply:
+
+CASE ( calculation = 'vc-relax' )
+  'none':    no dynamics
+  'sd':      steepest descent ( not implemented )
+  'damp-pr': damped (Beeman) dynamics of the Parrinello-Rahman
+             extended lagrangian
+  'damp-w':  damped (Beeman) dynamics of the new Wentzcovitch
+             extended lagrangian
+  'bfgs':    BFGS quasi-newton algorithm (default)
+             ion_dynamics must be 'bfgs' too
+CASE ( calculation = 'vc-md' )
+  'none':    no dynamics
+  'pr':      (Beeman) molecular dynamics of the Parrinello-Rahman
+             extended lagrangian
+  'w':       (Beeman) molecular dynamics of the new Wentzcovitch
+             extended lagrangian
+""",
+    'press': """
+Target pressure [KBar] in a variable-cell md or relaxation run.
+""",
+    'wmass': """
+Fictitious cell mass [amu] for variable-cell simulations
+(both 'vc-md' and 'vc-relax')
+""",
+    'cell_factor': """
+Used in the construction of the pseudopotential tables.
+It should exceed the maximum linear contraction of the
+cell during a simulation.
+""",
+    'press_conv_thr': """
+Convergence threshold on the pressure for variable cell
+relaxation ('vc-relax' : note that the other convergence
+thresholds for ionic relaxation apply as well).
+""",
+    'cell_dofree': """
+Select which of the cell parameters should be moved:
+
+all     = all axis and angles are moved
+x       = only the x component of axis 1 (v1_x) is moved
+y       = only the y component of axis 2 (v2_y) is moved
+z       = only the z component of axis 3 (v3_z) is moved
+xy      = only v1_x and v2_y are moved
+xz      = only v1_x and v3_z are moved
+yz      = only v2_y and v3_z are moved
+xyz     = only v1_x, v2_y, v3_z are moved
+shape   = all axis and angles, keeping the volume fixed
+volume  = the volume changes, keeping all angles fixed (i.e. only celldm(1) changes)
+2Dxy    = only x and y components are allowed to change
+2Dshape = as above, keeping the area in xy plane fixed
+
+BEWARE: if axis are not orthogonal, some of these options do not
+ work (symmetry is broken). If you are not happy with them,
+ edit subroutine init_dofree in file Modules/cell_base.f90
+"""
+}
 
 ions_doc = {
     'ion_dynamics': """
