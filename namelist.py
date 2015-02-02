@@ -257,14 +257,22 @@ class Namelist:
 
         # Check if value is of correct type
         if not isinstance(value, key_type):
-            error_str = "{0} key: '{1}' value '{2}' not type {3}".format(self.name, key, value, key_type.__name__)
-            raise Exception(error_str)
+            error_str = "{0} key: '{1}' value '{2}' not type {3}"
+            raise Exception(error_str.format(self.name, key, value, key_type.__name__))
 
         # Check the range of value is correct
-        if (isinstance(key_range, Callable) and not key_range(value)) and \
-           (key_range and value not in key_range):
-            error_str = "'{0}' key '{1}' value '{2}' invalid range".format(self.name, key, value)
-            raise Exception(error_str)
+        # Formats:
+        # () -> all ranges accepted
+        # func(value) -> return True/False whether in range
+        # (i, j, ...) -> tuple of accepted values
+        if isinstance(key_range, Callable):
+            if not key_range(value):
+                error_str = "'{0}' key '{1}' value '{2}' invalid range"
+                raise Exception(error_str.format(self.name, key, value))
+        elif key_range and value not in key_range:
+            error_str = "'{0}' key '{1}' value '{2}' invalid range"
+            raise Exception(error_str.format(self.name, key, value))
+
 
     def validate(self, qe):
         """Validate keypairs completely.

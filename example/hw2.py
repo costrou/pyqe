@@ -9,6 +9,7 @@ def create_input():
     """
     import sys
     sys.path.append("../")
+
     from espresso import QE
     qe = QE()
     qe.control.addKeypairs({
@@ -19,10 +20,7 @@ def create_input():
     })
     qe.system.addKeypairs({
         'ibrav': 2,
-        '''   celldm     (   1  )
-
-
-        ''': 6.73, 
+        'celldm(1)': 6.73, 
         'nat': 1,
         'ntyp': 1,
         'ecutwfc': 25.0,
