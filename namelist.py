@@ -14,6 +14,7 @@ class Namelist:
 
     The keys info dictionary:
     key-name :
+      narg = number of args (eg. for ibrav narg=0, for celldm(i) narg=1, etc.)
       _type = [ str, float, int, bool ]
       default value = [ function(self) returns value of _type, value of _type, None ]
       range = [ (), (value1, value2, ...), function(value) ]
@@ -42,7 +43,7 @@ class Namelist:
             error_str += "{0} key: {1} not valid key".format(self.name, key)
             raise Exception(error_str)
 
-        key_type, key_default, key_range, key_config, key_doc = key_info.getKeyInfo()
+        key_narg, key_type, key_default, key_range, key_config, key_doc = key_info.getKeyInfo()
 
         ## Key name
         keydesc_str = "Key: '{0}'\n".format(key)
@@ -116,7 +117,7 @@ class Namelist:
         (eg. key:'calculation')**
 
         """
-        value_default = self.keys.get(key)[1]
+        value_default = self.keys.get(key)[2]
         if isinstance(value_default, Callable):
             return value_default()
         return value_default
@@ -139,11 +140,11 @@ class Namelist:
 
         """
         for key, key_info in self.keys.items():
-            if len(key_info) != 5:
+            if len(key_info) != 6:
                 error_str = "key '{0}' length wrong"
                 raise Exception(error_str.format(key))
 
-            key_type, key_default, key_range, key_config, key_doc = key_info
+            key_narg, key_type, key_default, key_range, key_config, key_doc = key_info
 
             # Key Type. [str, float, int, bool]
             if key_type not in [str, float, int, bool]:
@@ -155,13 +156,13 @@ class Namelist:
                 error_str = "key '{0}' [1] default wrong"
                 raise Exception(error_str.format(key))
 
-            # Key Range Type [Tuple list or Function]
-            if not isinstance(key_range, (tuple, Callable)):
+            # Key Range Type [Tuple list ,None(everything valid), Function]
+            if not isinstance(key_range, (tuple, type(None), Callable)):
                 error_str = "key '{0}' [2] range wrong"
                 raise Exception(error_str.format(key))
 
             # Key Config Type [None or Function]
-            if not isinstance(key_config, (Callable, type(None))):
+            if not isinstance(key_config, (type(None), Callable)):
                 error_str = "key '{0}' [3] config wrong"
                 raise Exception(error_str.format(key))
 
@@ -179,7 +180,7 @@ class Namelist:
 
         Ensures: keypair is correct given the global config
         """
-        key_config = self.getKeyInfo(key)[3]
+        key_config = self.getKeyInfo(key)[4]
         if key_config:
             status, message = key_config(qe)
             if not status:
@@ -208,7 +209,7 @@ class Namelist:
             error_str = "{0} key: '{1}' invalid name".format(self.name, key)
             raise Exception(error_str)
 
-        key_type, key_default, key_range, key_config, key_doc = self.getKeyInfo(key)
+        key_narg, key_type, key_default, key_range, key_config, key_doc = self.getKeyInfo(key)
 
         # Check if value is of correct type
         if not isinstance(value, key_type):
@@ -385,33 +386,33 @@ class Control(Namelist):
         name = "CONTROL"
         keypairs = {}
         keys = {
-            'calculation': [str, 'scf', ('scf', 'nscf', 'bands', 'relax', 'md', 'vc-relax'), None],
-            'title': [str, '', (), None],
-            'verbosity': [str, 'low', ('low', 'high'), None],
-            'restart_mode': [ str, 'from_scratch', ('from_scratch', 'restart'), None],
-            'wf_collect': [bool, False, (), None],
-            'nstep': [int, self._defaultNStep, (), None],
-            'iprint': [int, None, (), None],
-            'tstress': [bool, False, (), None],
-            'tprnfor': [bool, self._defaultTprnfor , (), None],
-            'dt': [float, 20.0, isPositive, None],
-            'outdir': [str, self._defaultOutdir, (), self._checkOutdir],
-            'wfcdir': [str, self._defaultOutdir, (), self._checkWfcdir],
-            'prefix': [str, 'pwscf', (), None],
-            'lkpoint_dir': [bool, True, (), None],
-            'max_seconds': [float, 1.0e7, isPositive, None],
-            'etot_conv_thr': [float, 1.0e-4, isPositive, None],
-            'forc_conv_thr': [float, 1.0e-4, isPositive, None],
-            'disk_io': [str, self._defaultDiskIO, ('none', 'low', 'medium', 'high'), None],
-            'pseudo_dir': [str, self._defaultPseudoDir, (), self._checkPseudoDir],
-            'tefield': [bool, False, (), None],
-            'dipfield': [bool, False, (), None],
-            'lelfield': [bool, False, (), None],
-            'nberrycyc': [int, 1, isPositive, None],
-            'lorbm': [bool, False, (), None],
-            'lberry': [bool, False, (), None],
-            'gdir': [int, None, (1, 2, 3), None],
-            'nppstr': [int, None, isPositive, None]
+            'calculation': [0, str, 'scf', ('scf', 'nscf', 'bands', 'relax', 'md', 'vc-relax'), None],
+            'title': [0, str, '', None, None],
+            'verbosity': [0, str, 'low', ('low', 'high'), None],
+            'restart_mode': [0, str, 'from_scratch', ('from_scratch', 'restart'), None],
+            'wf_collect': [0, bool, False, None, None],
+            'nstep': [0, int, self._defaultNStep, None, None],
+            'iprint': [0, int, None, None, None],
+            'tstress': [0, bool, False, None, None],
+            'tprnfor': [0, bool, self._defaultTprnfor , None, None],
+            'dt': [0, float, 20.0, isPositive, None],
+            'outdir': [0, str, self._defaultOutdir, None, self._checkOutdir],
+            'wfcdir': [0, str, self._defaultOutdir, None, self._checkWfcdir],
+            'prefix': [0, str, 'pwscf', None, None],
+            'lkpoint_dir': [0, bool, True, None, None],
+            'max_seconds': [0, float, 1.0e7, isPositive, None],
+            'etot_conv_thr': [0, float, 1.0e-4, isPositive, None],
+            'forc_conv_thr': [0, float, 1.0e-4, isPositive, None],
+            'disk_io': [0, str, self._defaultDiskIO, ('none', 'low', 'medium', 'high'), None],
+            'pseudo_dir': [0, str, self._defaultPseudoDir, None, self._checkPseudoDir],
+            'tefield': [0, bool, False, None, None],
+            'dipfield': [0, bool, False, None, None],
+            'lelfield': [0, bool, False, None, None],
+            'nberrycyc': [0, int, 1, isPositive, None],
+            'lorbm': [0, bool, False, None, None],
+            'lberry': [0, bool, False, None, None],
+            'gdir': [0, int, None, (1, 2, 3), None],
+            'nppstr': [0, int, None, isPositive, None]
         }
         super().__init__(name, keypairs, keys)
 
@@ -492,90 +493,90 @@ class System(Namelist):
         name = "SYSTEM"
         keypairs = {}
         keys = {
-            'ibrav': [int, None, self._rangeIbrav, self._checkIbrav],
-            'celldm(i)': [float, None, isPositive, self._checkCelldm],
-            'A': [float, None, isPositive, self._checkA],
-            'B': [float, None, isPositive, self._checkB],
-            'C': [float, None, isPositive, self._checkC],
-            'cosAB': [float, None, isWithinOneOfZero, self._checkCosAB],
-            'cosAC': [float, None, isWithinOneOfZero, self._checkCosAC],
-            'cosBC': [float, None, isWithinOneOfZero, self._checkCosBC],
-            'nat': [int, None, isPositive, self._checkNat],
-            'ntyp': [int, None, isPositive, self._checkNtyp],
-            'nbnd': [int, None, isGTFour, None], #TODO default nbnd (insulator)
-            'tot_charge': [float, 0.0, (), None],
-            'tot_magnetization': [float, -1.0, isWithinOneOfZero, None],
-            'starting_magnetization(i)': [float, None, isWithinOneOfZero, None],
-            'ecutwfc': [float, None, isPositive, None],
-            'ecutrho': [float, self._defaultEcutrho, isPositive, None],
-            'ecutfock': [float, self._defaultEcutfock, isPositive, None],
-            'nr1': [int, None, isPositive, self._checkNri],
-            'nr2': [int, None, isPositive, self._checkNri],
-            'nr3': [int, None, isPositive, self._checkNri],
-            'nr1s': [int, None, isPositive, self._checkNris],
-            'nr2s': [int, None, isPositive, self._checkNris],
-            'nr3s': [int, None, isPositive, self._checkNris],
-            'nosym': [bool, False, (), None],
-            'nosym_evc': [bool, False, (), None],
-            'noinv': [bool, False, (), None],
-            'no_t_rev': [bool, False, (), None],
-            'force_symmorphic': [bool, False, (), None],
-            'use_all_frac': [bool, False, (), None],
-            'occupations': [str, None, ('smearing', 'tetrahedra', 'fixed', 'from_input'), None],
-            'one_atom_occupations': [bool, False, (), None],
-            'starting_spin_angle': [bool, False, (), None],
-            'degauss': [float, 0.0, isPositive, None],
-            'smearing': [str, 'gaussian', ('gaussian', 'methfessel-paxton', 'm-p', 'mp', 'mazari-vanderbilt', 'cold', 'm-v', 'mv', 'fermi-dirac', 'f-d', 'fd'), None],
-            'nspin': [int, 1, (1, 2, 4), None],
-            'noncolin': [bool, False, (), None],
-            'ecfixed': [float, 0.0, isPositive, None],
-            'qcutz': [float, 0.0, isPositive, None],
-            'q2sigma': [float, 0.1, isPositive, None],
-            'input_dft': [str, None, (), None],
-            'exx_fraction': [float, None, isBtwZeroOne, None],
-            'screening_parameter': [float, 0.106, (), None],
-            'exxdiv_treatment': [str, 'gygi-baldereshi', ('gygi-baldereschi', 'vcut_spherical', 'vcut_ws', 'none'), None],
-            'x_gamma_extrapolation': [bool, True, (), None],
-            'ecutvcut': [float, 0.0, isPositive, None],
-            'nqx1': [int, self._defaultnqx1, isPositive, None],
-            'nqx2': [int, self._defaultnqx2, isPositive, None],
-            'nqx3': [int, self._defaultnqx3, isPositive, None],
-            'lda_plus_u': [bool, False, (), None],
-            'lda_plus_u_kind': [int, 0, (0, 1), None],
-            'Hubbard_U(i)': [float, 0.0, (), None],  #TODO valid range TODO check
-            'Hubbard_J0(i)': [float, 0.0, (), None], #TODO valid range TODO check
-            'Hubbard_alpha(i)': [float, 0.0, (), None], #TODO valid range TODO check
-            'Hubbard_beta(i)': [float, 0.0, (), None], #TODO valid range TODO check
-            'Hubbard_J(i,ityp)': [float, 0.0, (), None], #TODO valid range TODO check
-            'starting_ns_eigenvalue(m,ispin,I)': [float, -1.0, (), None], #TODO valid range TODO check
-            'U_projection_type': [str, 'atomic', ('atomic', 'ortho-atomic', 'norm-atomic', 'file', 'pseduo'), None],
-            'edir': [int, None, (1, 2, 3), None],
-            'emaxpos': [float, 0.5, isBtwZeroOne, None],
-            'eopreg': [float, 0.1, isBtwZeroOne, None], 
-            'eamp': [float, 0.001, (), None], #TODO range
-            'angle1(i)': [float, None, (), None], #TODO check (1 .. ntyp)
-            'angle2(i)': [float, None, (), None], #TODO check (1 .. ntyp)
-            'constrained_magnetization': [str, 'none', ('none', 'total', 'atomic', 'total direction', 'atomic direction'), None],
-            'fixed_magnetization(i)': [float, 0.0, (), None], #check i (1 .. 3)
-            'lambda': [float, 1.0, (), None],
-            'report': [int, 1, isPositive, None],
-            'lspinorb': [bool, None, (), None], #TODO default not specified in docs
-            'assume_isolated': [str, 'none', ('none', 'makov-payne', 'martyna-tuckerman', 'esm'), None],
-            'esm_bc': [str, 'pbc', ('pbc', 'bc1', 'bc2', 'bc3'), None],
-            'esm_w': [float, 0.0, (), None],
-            'esm_efield': [float , 0.0, (), None],
-            'esm_nfit': [int, 4, (), None],
-            'vdw_corr': [str, 'none', ('grimme-d2', 'Grimme-D2', 'DFT-D', 'dft-d', 'TS', 'ts', 'ts-vdw', 'ts-vdW', 'tkatchenko-scheffler', 'XDM', 'xdm'), None],
-            'london': [bool, False, (), None],
-            'london_s6': [float, 0.75, (), None],
-            'london_rcut': [float, 200.0, (), None],
-            'xdm': [bool, False, (), None],
-            'xdm_a1': [float, 0.6836, (), None],
-            'xdm_a2': [float, 1.5045, (), None],
-            'space_group': [int, 0, self._rangeSpaceGroup, self._checkSpaceGroup],
-            'uniqueb': [bool, False, (), None],
-            'origin_choice': [int, 1, (1, 2, 3), None], # TODO Maybe there are more possible origins?
-            'rhombohedral': [bool, True, (), None]
+            'ibrav': [0, int, None, self._rangeIbrav, self._checkIbrav],
+            'celldm(i)': [1, float, None, isPositive, self._checkCelldm],
+            'A': [0, float, None, isPositive, self._checkA],
+            'B': [0, float, None, isPositive, self._checkB],
+            'C': [0, float, None, isPositive, self._checkC],
+            'cosAB': [0, float, None, isWithinOneOfZero, self._checkCosAB],
+            'cosAC': [0, float, None, isWithinOneOfZero, self._checkCosAC],
+            'cosBC': [0, float, None, isWithinOneOfZero, self._checkCosBC],
+            'nat': [0, int, None, isPositive, self._checkNat],
+            'ntyp': [0, int, None, isPositive, self._checkNtyp],
+            'nbnd': [0, int, None, isGTFour, None], #TODO default nbnd (insulator)
+            'tot_charge': [0, float, 0.0, None, None],
+            'tot_magnetization': [0, float, -1.0, isWithinOneOfZero, None],
+            'starting_magnetization(i)': [1, float, None, isWithinOneOfZero, None],
+            'ecutwfc': [0, float, None, isPositive, None],
+            'ecutrho': [0, float, self._defaultEcutrho, isPositive, None],
+            'ecutfock': [0, float, self._defaultEcutfock, isPositive, None],
+            'nr1': [0, int, None, isPositive, self._checkNri],
+            'nr2': [0, int, None, isPositive, self._checkNri],
+            'nr3': [0, int, None, isPositive, self._checkNri],
+            'nr1s': [0, int, None, isPositive, self._checkNris],
+            'nr2s': [0, int, None, isPositive, self._checkNris],
+            'nr3s': [0, int, None, isPositive, self._checkNris],
+            'nosym': [0, bool, False, None, None],
+            'nosym_evc': [0, bool, False, None, None],
+            'noinv': [0, bool, False, None, None],
+            'no_t_rev': [0, bool, False, None, None],
+            'force_symmorphic': [0, bool, False, None, None],
+            'use_all_frac': [0, bool, False, None, None],
+            'occupations': [0, str, None, ('smearing', 'tetrahedra', 'fixed', 'from_input'), None],
+            'one_atom_occupations': [0, bool, False, None, None],
+            'starting_spin_angle': [0, bool, False, None, None],
+            'degauss': [0, float, 0.0, isPositive, None],
+            'smearing': [0, str, 'gaussian', ('gaussian', 'methfessel-paxton', 'm-p', 'mp', 'mazari-vanderbilt', 'cold', 'm-v', 'mv', 'fermi-dirac', 'f-d', 'fd'), None],
+            'nspin': [0, int, 1, (1, 2, 4), None],
+            'noncolin': [0, bool, False, None, None],
+            'ecfixed': [0, float, 0.0, isPositive, None],
+            'qcutz': [0, float, 0.0, isPositive, None],
+            'q2sigma': [0, float, 0.1, isPositive, None],
+            'input_dft': [0, str, None, None, None],
+            'exx_fraction': [0, float, None, isBtwZeroOne, None],
+            'screening_parameter': [0, float, 0.106, None, None],
+            'exxdiv_treatment': [0, str, 'gygi-baldereshi', ('gygi-baldereschi', 'vcut_spherical', 'vcut_ws', 'none'), None],
+            'x_gamma_extrapolation': [0, bool, True, None, None],
+            'ecutvcut': [0, float, 0.0, isPositive, None],
+            'nqx1': [0, int, self._defaultnqx1, isPositive, None],
+            'nqx2': [0, int, self._defaultnqx2, isPositive, None],
+            'nqx3': [0, int, self._defaultnqx3, isPositive, None],
+            'lda_plus_u': [0, bool, False, None, None],
+            'lda_plus_u_kind': [0, int, 0, (0, 1), None],
+            'Hubbard_U(i)': [1, float, 0.0, None, None],  #TODO valid range TODO check
+            'Hubbard_J0(i)': [1, float, 0.0, None, None], #TODO valid range TODO check
+            'Hubbard_alpha(i)': [1, float, 0.0, None, None], #TODO valid range TODO check
+            'Hubbard_beta(i)': [1, float, 0.0, None, None], #TODO valid range TODO check
+            'Hubbard_J(i,ityp)': [2, float, 0.0, None, None], #TODO valid range TODO check
+            'starting_ns_eigenvalue(m,ispin,I)': [0, float, -1.0, None, None], #TODO valid range TODO check
+            'U_projection_type': [0, str, 'atomic', ('atomic', 'ortho-atomic', 'norm-atomic', 'file', 'pseduo'), None],
+            'edir': [0, int, None, (1, 2, 3), None],
+            'emaxpos': [0, float, 0.5, isBtwZeroOne, None],
+            'eopreg': [0, float, 0.1, isBtwZeroOne, None], 
+            'eamp': [0, float, 0.001, None, None], #TODO range
+            'angle1(i)': [1, float, None, None, None], #TODO check (1 .. ntyp)
+            'angle2(i)': [1, float, None, None, None], #TODO check (1 .. ntyp)
+            'constrained_magnetization': [0, str, 'none', ('none', 'total', 'atomic', 'total direction', 'atomic direction'), None],
+            'fixed_magnetization(i)': [0, float, 0.0, None, None], #check i (1 .. 3)
+            'lambda': [0, float, 1.0, None, None],
+            'report': [0, int, 1, isPositive, None],
+            'lspinorb': [0, bool, None, None, None], #TODO default not specified in docs
+            'assume_isolated': [0, str, 'none', ('none', 'makov-payne', 'martyna-tuckerman', 'esm'), None],
+            'esm_bc': [0, str, 'pbc', ('pbc', 'bc1', 'bc2', 'bc3'), None],
+            'esm_w': [0, float, 0.0, None, None],
+            'esm_efield': [0, float , 0.0, None, None],
+            'esm_nfit': [0, int, 4, None, None],
+            'vdw_corr': [0, str, 'none', ('grimme-d2', 'Grimme-D2', 'DFT-D', 'dft-d', 'TS', 'ts', 'ts-vdw', 'ts-vdW', 'tkatchenko-scheffler', 'XDM', 'xdm'), None],
+            'london': [0, bool, False, None, None],
+            'london_s6': [0, float, 0.75, None, None],
+            'london_rcut': [0, float, 200.0, None, None],
+            'xdm': [0, bool, False, None, None],
+            'xdm_a1': [0, float, 0.6836, None, None],
+            'xdm_a2': [0, float, 1.5045, None, None],
+            'space_group': [0, int, 0, self._rangeSpaceGroup, self._checkSpaceGroup],
+            'uniqueb': [0, bool, False, None, None],
+            'origin_choice': [0, int, 1, (1, 2, 3), None], # TODO Maybe there are more possible origins?
+            'rhombohedral': [0, bool, True, None, None]
         }
 
         super().__init__(name, keypairs, keys)
