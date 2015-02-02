@@ -41,7 +41,7 @@ class Namelist:
         Ensures: key is valid
         """
         # We ignore key_index even if it has values
-        key, key_index = self.parseKey(key)
+        key, index = self.parseKey(key)
 
         if not self.isDefinedKey(key):
             error_str = "{0} key: {1} not valid key".format(self.name, key)
@@ -96,23 +96,31 @@ class Namelist:
         """
         return self.keys.get(key)
 
-    def getSetKeyValue(self, key):
+    def getSetKeyValue(self, key, index=()):
         """Returns the key value if it has been set by the user. Otherwise
         returns None.
 
         Assumes: valid key
 
         """
-        return self.keypairs.get(key)
+        values = self.keypairs.get(key, None)
+        if values and index in values:
+            return values[index]
+        # This returns either None, or the whole dictionary
+        return values
 
-    def getCurrentKeyValue(self, key):
+    def getCurrentKeyValue(self, key, index=()):
         """Returns: key value if set by the user. Otherwise the current
         default value of key (getDefaultKeyValue).
 
         Assumes: valid key
 
         """
-        return self.keypairs.get(key, self.getDefaultKeyValue(key))
+        value = self.getSetKeyValues(key, index)
+        if value:
+            return value
+        else:
+            return self.getDefaultKeyValue(key)
 
     def getDefaultKeyValue(self, key):
         """Returns: current default value of key.
@@ -193,12 +201,14 @@ class Namelist:
             if not status:
                 raise Exception(message)
 
-    def parseKey(self, key):
+    def parseKey(self, unparsed_key):
         """Keys have many forms:
         <key_name>(int, int, ... )
 
         """
-        key_regex = re.compile("^(\w+)$|^(\w+)\(( *\d+ *(?:, *\d+ *)*)\)$")
+        # Remove all whitespace charaters (proud of this one :) )
+        key = ''.join(_ for _ in unparsed_key if _ not in " \n\r\t\v")
+        key_regex = re.compile("^(\w+)$|^(\w+)\((\d+(?:,\d+)*)\)$")
         key_match = key_regex.match(key)
 
         if not key_match:
@@ -224,11 +234,13 @@ class Namelist:
         Ensures: keypair is in domain and range of given namelist
 
         """
-        if not len(keypair) == 2 or not isinstance(keypair[0], str):
+        key, index, value = keypair
+        
+        if not len(keypair) == 3 or \
+           not isinstance(key, str) or \
+           not isinstance(index, tuple):
             error_str = "keypair consist of ['str', value]"
             raise Exception(error_str)
-
-        key, value = keypair
 
         # Check if key is valid
         if not self.isDefinedKey(key):
@@ -236,6 +248,12 @@ class Namelist:
             raise Exception(error_str)
 
         key_narg, key_type, key_default, key_range, key_config, key_doc = self.getKeyInfo(key)
+
+        # Check if key came with correct number of args
+        key_narg = self.getKeyInfo(key)[0]
+        if len(index) != key_narg:
+            error_str = "{0} key: '{1}' expects {2} indicies {3} given"
+            raise Exception(error_str.format(self.name, key, key_narg, index))
 
         # Check if value is of correct type
         if not isinstance(value, key_type):
@@ -257,12 +275,9 @@ class Namelist:
         # This validates the domain and range of each user set keypair
         # (should really not fail)
         # We have to treat indicies differently
-        for keypair in self.keypairs.items():
-            if isinstance(keypair[0], dict):
-                for index, value in keypair[0].items():
-                    self.validateKeyPair([keypair[0], value])
-            else:
-                self.validateKeypair(keypair)
+        for key, values in self.keypairs.items():
+            for index, value in values.items():
+                self.validateKeypair([key, index, value])
 
         # Check that for each key in namelist it is properly
         # configured with respect to its global environment.  (can
@@ -273,8 +288,9 @@ class Namelist:
 
 
     def addKeypairs(self, keypairs):
-        """Adds List, Tuple, or Dictionary of keypairs to the namelist.
-        Exception otherwise. Keypairs up to Exception are still added.
+        """Adds List, Tuple, or Dictionary of unformated keypairs to the
+        namelist.  Exception otherwise. Keypairs up to Exception are
+        still added.
 
         Ensures: keypairs are valid keypairs are added to dictionary
 
@@ -297,35 +313,41 @@ class Namelist:
 
         """
         key_unparsed, value = keypair
-        key, key_index = self.parseKey(key_unparsed)
+        key, index = self.parseKey(key_unparsed)
 
-        self.validateKeypair([key, value])
-
-        # Check if key came with correct number of args
-        key_narg = self.getKeyInfo(key)[0]
-        if len(key_index) != key_narg:
-            error_str = "{0} key: '{1}' expects {2} indicies {3} given"
-            raise Exception(error_str.format(self.name, key, key_narg, key_index))
+        self.validateKeypair([key, index, value])
 
         # Check if user is setting key to its default value (harmless)
         if value == self.getDefaultKeyValue(key):
             print("Warning: Setting Key '{0}' to its default value".format(key))
 
-        # Check if user is overwritting key (harmless)
         if self.getSetKeyValue(key):
-            print("Warning: Overwritting Key '{0}'".format(key))
-
-        self.keypairs[key] = value
+            # Check if user is overwritting key (harmless)
+            values = self.getSetKeyValue(key)
+            if index in values:
+                print("Warning: Overwritting Key '{0}'".format(key))
+            values.update({index: value})
+        else:
+            # Not values currently in keypair
+            # This will start a dictionary as well
+            self.keypairs[key] = {index: value}
 
     def keypairToString(self, keypair):
         """Assumes: keypair is a valid Keypair
+        of form:
+
+        key, index, value = keypair
+        key(index) = value
 
         Returns: namelist string representation of keypair
 
         """
-        key, value = keypair
+        key, index, value = keypair
 
-        keypair_str = "{0} = ".format(key)
+        keypair_str = "{0}".format(key)
+        if index:
+            keypair_str += "({0})".format(",".join(map(str, index)))
+        keypair_str += " = "
         if isinstance(value, str):
             keypair_str += "'{1}'".format(key, value)
         else:
@@ -340,11 +362,11 @@ class Namelist:
         namelist_str = " &{0}\n".format(self.name)
 
         # Iterate through key value
-        for keypair in self.keypairs.items():
-            namelist_str += self.NAMELIST_SPACE
-            namelist_str += self.keypairToString(keypair)
-            namelist_str += "\n"
-
+        for key, values in self.keypairs.items():
+            for index, value in values.items():
+                namelist_str += self.NAMELIST_SPACE
+                namelist_str += self.keypairToString([key, index, value])
+                namelist_str += "\n"
         namelist_str += " /\n"
 
         return namelist_str
@@ -370,13 +392,13 @@ class Control(Namelist):
 
     def _defaultNStep(self):
         # Include None because scf is default value
-        if self.keypairs.get('calculation') in ['scf', 'nscf', None]:
+        if self.getCurrentKeyValue('calculation') in ['scf', 'nscf', None]:
             return 1
         else:
             return 50
 
     def _defaultTprnfor(self):
-        return self.keypairs.get('calculation') in ['vc-md', 'vc-relax']
+        return self.getCurrentKeyValue('calculation') in ['vc-md', 'vc-relax']
 
     def _defaultOutdir(self):
         return os.environ.get('ESPRESSO_TMPDIR', './')
@@ -387,7 +409,7 @@ class Control(Namelist):
 
     def _defaultDiskIO(self):
         # Include None because scf is default value
-        if self.keypairs.get('calculation') in ['scf', None]:
+        if self.getCurrentKeyValue('calculation') in ['scf', None]:
             return 'low'
         else:
             return 'medium'
