@@ -10,7 +10,8 @@ def addDocsToKeys(name, keys):
     doc_map = {
         "CONTROL": control_doc,
         "SYSTEM": system_doc,
-        "ELECTRONS": electrons_doc
+        "ELECTRONS": electrons_doc,
+        "IONS": ions_doc
         }
 
     namelist_doc = doc_map.get(name)
@@ -25,6 +26,208 @@ def addDocsToKeys(name, keys):
                 raise Exception(error_str.format(key))
             else:
                 info.append(key_doc)
+
+ions_doc = {
+    'ion_dynamics': """
+Specify the type of ionic dynamics.
+
+For different type of calculation different possibilities are
+allowed and different default values apply:
+
+CASE ( calculation = 'relax' )
+    'bfgs' :   (default)   use BFGS quasi-newton algorithm,
+                           based on the trust radius procedure,
+                           for structural relaxation
+    'damp' :               use damped (quick-min Verlet)
+                           dynamics for structural relaxation
+                           Can be used for constrained
+                           optimisation: see CONSTRAINTS card
+
+CASE ( calculation = 'md' )
+    'verlet' : (default)   use Verlet algorithm to integrate
+                           Newton's equation. For constrained
+                           dynamics, see CONSTRAINTS card
+    'langevin'             ion dynamics is over-damped Langevin
+    'langevin-smc'         over-damped Langevin with Smart Monte Carlo:
+                           see R.J.Rossky, JCP, 69, 4628(1978)
+
+
+CASE ( calculation = 'vc-relax' )
+    'bfgs' :   (default)   use BFGS quasi-newton algorithm;
+                           cell_dynamics must be 'bfgs' too
+    'damp' :               use damped (Beeman) dynamics for
+                           structural relaxation
+CASE ( calculation = 'vc-md' )
+    'beeman' : (default)   use Beeman algorithm to integrate
+                           Newton's equation
+""",
+    'ion_positions': """
+'default '  : if restarting, use atomic positions read from the
+              restart file; in all other cases, use atomic
+              positions from standard input.
+
+'from_input' : restart the simulation with atomic positions read
+              from standard input, even if restarting.
+""",
+    'pot_extrapolation': """
+ Used to extrapolate the potential from preceding ionic steps.
+
+   'none'        :  no extrapolation
+
+   'atomic'      :  extrapolate the potential as if it was a sum of
+                    atomic-like orbitals
+
+   'first_order' :  extrapolate the potential with first-order
+                    formula
+
+   'second_order':  as above, with second order formula
+
+Note: 'first_order' and 'second-order' extrapolation make sense
+only for molecular dynamics calculations
+""",
+    'wfc_extrapolation': """
+Used to extrapolate the wavefunctions from preceding ionic steps.
+
+   'none'        :  no extrapolation
+
+   'first_order' :  extrapolate the wave-functions with first-order
+                    formula.
+
+   'second_order':  as above, with second order formula.
+
+Note: 'first_order' and 'second-order' extrapolation make sense
+only for molecular dynamics calculations
+""",
+    'remove_rigid_rot': """
+This keyword is useful when simulating the dynamics and/or the
+thermodynamics of an isolated system. If set to true the total
+torque of the internal forces is set to zero by adding new forces
+that compensate the spurious interaction with the periodic
+images. This allows for the use of smaller supercells.
+
+BEWARE: since the potential energy is no longer consistent with
+the forces (it still contains the spurious interaction with the
+repeated images), the total energy is not conserved anymore.
+However the dynamical and thermodynamical properties should be
+in closer agreement with those of an isolated system.
+Also the final energy of a structural relaxation will be higher,
+but the relaxation itself should be faster.
+""",
+    'ion_temperature': """
+'rescaling'   control ionic temperature via velocity rescaling
+              (first method) see parameters "tempw", "tolp", and
+              "nraise" (for VC-MD only). This rescaling method
+              is the only one currently implemented in VC-MD
+
+'rescale-v'   control ionic temperature via velocity rescaling
+              (second method) see parameters "tempw" and "nraise"
+
+'rescale-T'   control ionic temperature via velocity rescaling
+              (third method) see parameter "delta_t"
+
+'reduce-T'    reduce ionic temperature every "nraise" steps
+              by the (negative) value "delta_t"
+
+'berendsen'   control ionic temperature using "soft" velocity
+              rescaling - see parameters "tempw" and "nraise"
+
+'andersen'    control ionic temperature using Andersen thermostat
+              see parameters "tempw" and "nraise"
+
+'initial'     initialize ion velocities to temperature "tempw"
+              and leave uncontrolled further on
+
+'not_controlled' (default) ionic temperature is not controlled
+""",
+    'tempw': """
+Starting temperature (Kelvin) in MD runs
+target temperature for most thermostats.
+""",
+    'tolp': """
+Tolerance for velocity rescaling. Velocities are rescaled if
+the run-averaged and target temperature differ more than tolp.
+""",
+    'delta_t': """
+if ion_temperature='rescale-T':
+       at each step the instantaneous temperature is multiplied
+       by delta_t; this is done rescaling all the velocities.
+
+if ion_temperature='reduce-T':
+       every 'nraise' steps the instantaneous temperature is
+       reduced by -delta_T (i.e. delta_t < 0 is added to T)
+
+The instantaneous temperature is calculated at the end of
+every ionic move and BEFORE rescaling. This is the temperature
+reported in the main output.
+
+For delta_t < 0, the actual average rate of heating or cooling
+should be roughly C*delta_t/(nraise*dt) (C=1 for an
+ideal gas, C=0.5 for a harmonic solid, theorem of energy
+equipartition between all quadratic degrees of freedom).
+""",
+    'nraise': """
+if ion_temperature='reduce-T':
+       every 'nraise' steps the instantaneous temperature is
+       reduced by -delta_T (.e. delta_t is added to the temperature)
+
+if ion_temperature='rescale-v':
+       every 'nraise' steps the average temperature, computed from
+       the last nraise steps, is rescaled to tempw
+
+if ion_temperature='rescaling' and calculation='vc-md':
+       every 'nraise' steps the instantaneous temperature
+       is rescaled to tempw
+
+if ion_temperature='berendsen':
+       the "rise time" parameter is given in units of the time step:
+       tau = nraise*dt, so dt/tau = 1/nraise
+
+if ion_temperature='andersen':
+       the "collision frequency" parameter is given as nu=1/tau
+       defined above, so nu*dt = 1/nraise
+""",
+    'refold_pos': """
+This keyword applies only in the case of molecular dynamics or
+damped dynamics. If true the ions are refolded at each step into
+the supercell.
+""",
+    'upscale': """
+Max reduction factor for conv_thr during structural optimization
+conv_thr is automatically reduced when the relaxation
+approaches convergence so that forces are still accurate,
+but conv_thr will not be reduced to less that
+conv_thr / upscale.
+""",
+    'bfgs_ndim': """
+Number of old forces and displacements vectors used in the
+PULAY mixing of the residual vectors obtained on the basis
+of the inverse hessian matrix given by the BFGS algorithm.
+When bfgs_ndim = 1, the standard quasi-Newton BFGS method is
+used.
+(bfgs only)
+""",
+    'trust_radius_max': """
+Maximum ionic displacement in the structural relaxation.
+(bfgs only)
+""",
+    'trust_radius_min': """
+Minimum ionic displacement in the structural relaxation
+BFGS is reset when trust_radius < trust_radius_min.
+(bfgs only)
+""",
+    'trust_radius_ini': """
+Initial ionic displacement in the structural relaxation.
+(bfgs only)
+""",
+    'w_1': """
+Parameters used in line search based on the Wolfe conditions.
+(bfgs only)
+""",
+    'w_2': """
+Parameters used in line search based on the Wolfe conditions.
+(bfgs only)
+"""
+}
 
 electrons_doc = {
     'electron_maxstep': """

@@ -19,7 +19,7 @@ def create_input():
     })
     qe.system.addKeypairs({
         'ibrav': 2,
-        '''   celldm     (   1  , 10 )
+        '''   celldm     (   1  )
 
 
         ''': 6.73, 
@@ -30,7 +30,7 @@ def create_input():
         'smearing': 'gaussian',
         'degauss': 0.02
     })
-    qe.electrons.update({
+    qe.electrons.addKeypairs({
         'diagonalization': 'david',
     })
 
