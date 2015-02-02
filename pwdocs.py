@@ -9,7 +9,8 @@ def addDocsToKeys(name, keys):
     """
     doc_map = {
         "CONTROL": control_doc,
-        "SYSTEM": system_doc
+        "SYSTEM": system_doc,
+        "ELECTRONS": electrons_doc
         }
 
     namelist_doc = doc_map.get(name)
@@ -25,6 +26,152 @@ def addDocsToKeys(name, keys):
             else:
                 info.append(key_doc)
 
+electrons_doc = {
+    'electron_maxstep': """
+maximum number of iterations in a scf step
+""",
+    'scf_must_converge': """
+If .false. do not stop molecular dynamics or ionic relaxation
+when electron_maxstep is reached. Use with care.
+""",
+    'conv_thr': """
+Convergence threshold for selfconsistency:
+   estimated energy error < conv_thr
+(note that conv_thr is extensive, like the total energy).
+For non-self-consistent calculations, conv_thr is used
+to set the default value of the threshold (ethr) for
+iterative diagonalizazion: see diago_thr_init
+""",
+    'adaptive_thr': """
+If .TRUE. this turns on the use of an adaptive conv_thr for
+the inner scf loops when using EXX.
+
+""", 
+    'conv_thr_init': """
+When adaptive_thr = .TRUE. the convergence threshold for
+each scf cycle is given by:
+max( conv_thr, conv_thr_multi * dexx )
+""", 
+'conv_thr_multi': """
+When adaptive_thr = .TRUE. the convergence threshold for
+each scf cycle is given by:
+max( conv_thr, conv_thr_multi * dexx )
+""", 
+    'mixing_mode': """
+'plain' :    charge density Broyden mixing
+
+'TF' :       as above, with simple Thomas-Fermi screening
+            (for highly homogeneous systems)
+
+'local-TF':  as above, with local-density-dependent TF screening
+             (for highly inhomogeneous systems)
+""", 
+    'mixing_beta': """
+mixing factor for self-consistency
+""", 
+    'mixing_ndim': """
+number of iterations used in mixing scheme.
+If you are tight with memory, you may reduce it to 4 or so.
+""", 
+    'mixing_fixed_ns': """
+For DFT+U : number of iterations with fixed ns ( ns is the
+  atomic density appearing in the Hubbard term ).
+""", 
+    'diagonalization': """
+'david':  Davidson iterative diagonalization with overlap matrix
+          (default). Fast, may in some rare cases fail.
+
+'cg' :    conjugate-gradient-like band-by-band diagonalization
+          Typically slower than 'david' but it uses less memory
+          and is more robust (it seldom fails)
+
+'cg-serial', 'david-serial': obsolete, use "-ndiag 1 instead"
+          The subspace diagonalization in Davidson is performed
+          by a fully distributed-memory parallel algorithm on
+          4 or more processors, by default. The allocated memory
+          scales down with the number of procs. Procs involved
+          in diagonalization can be changed with command-line
+          option "-ndiag N". On multicore CPUs it is often
+          convenient to let just one core per CPU to work
+          on linear algebra.
+""", 
+    'ortho_para': """
+OBSOLETE: use command-line option " -ndiag XX" instead 
+""", 
+    'diago_thr_init': """
+Convergence threshold (ethr) for iterative diagonalization
+(the check is on eigenvalue convergence).
+For scf calculations: default is 1.D-2 if starting from a
+superposition of atomic orbitals; 1.D-5 if starting from a
+charge density. During self consistency the threshold
+is automatically reduced (but never below 1.D-13) when
+approaching convergence.
+For non-scf calculations: default is (conv_thr/N elec)/10.
+""", 
+    'diago_cg_maxiter': """
+For conjugate gradient diagonalization:
+max number of iterations
+""", 
+    'diago_david_ndim': """
+For Davidson diagonalization: dimension of workspace
+(number of wavefunction packets, at least 2 needed).
+A larger value may yield a somewhat faster algorithm
+but uses more memory. The opposite holds for smaller values.
+Try diago_david_ndim=2 if you are tight on memory or if
+your job is large: the speed penalty is often negligible
+""", 
+    'diago_full_acc': """
+If .TRUE. all the empty states are diagonalized at the same level
+of accuracy of the occupied ones. Otherwise the empty states are
+diagonalized using a larger threshold (this should not affect
+total energy, forces, and other ground-state properties).
+""", 
+    'efield': """
+Amplitude of the finite electric field (in Ry a.u.;
+1 a.u. = 36.3609*10^10 V/m). Used only if lelfield=.TRUE.
+and if k-points (K_POINTS card) are not automatic.
+""", 
+    'efield_cart': """
+Finite electric field (in Ry a.u.=36.3609*10^10 V/m) in
+cartesian axis. Used only if lelfield=.TRUE. and if
+k-points (K_POINTS card) are automatic.
+""", 
+    'startingpot': """
+'atomic': starting potential from atomic charge superposition
+          ( default for scf, *relax, *md )
+
+'file'  : start from existing "charge-density.xml" file in the
+          directory specified by variables "prefix" and "outdir"
+          For nscf and bands calculation this is the default
+          and the only sensible possibility.
+""", 
+    'startingwfc': """
+'atomic': start from superposition of atomic orbitals
+          If not enough atomic orbitals are available,
+          fill with random numbers the remaining wfcs
+          The scf typically starts better with this option,
+          but in some high-symmetry cases one can "loose"
+          valence states, ending up in the wrong ground state.
+
+'atomic+random': as above, plus a superimposed "randomization"
+          of atomic orbitals. Prevents the "loss" of states
+          mentioned above.
+
+'random': start from random wfcs. Slower start of scf but safe.
+          It may also reduce memory usage in conjunction with
+          diagonalization='cg'
+
+'file':   start from an existing wavefunction file in the
+          directory specified by variables "prefix" and "outdir"
+""",
+    'tqr': """
+If .true., use the real-space algorithm for augmentation
+charges in ultrasoft pseudopotentials.
+Must faster execution of ultrasoft-related calculations,
+but numerically less accurate than the default algorithm.
+Use with care and after testing!
+"""
+}
 
 system_doc = {
     'ibrav': """

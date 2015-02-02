@@ -14,7 +14,7 @@ for details on the input format to PW
 QE_TAB = "    "
 
 from cards import AtomicSpecies, AtomicPositions, KPoints, CellParameters
-from namelist import Control, System
+from namelist import Control, System, Electrons
 
 class QE:
     """
@@ -29,7 +29,7 @@ class QE:
     def __init__(self):
         self.control = Control()
         self.system = System()
-        self.electrons = NameList("ELECTRONS")
+        self.electrons = Electrons()
         self.ions = NameList("IONS")
         self.cell = NameList("CELL")
 
@@ -135,9 +135,8 @@ class QE:
         (not sure how to handle this yet)
         """
         self.control.validate(self)
-        # Not Implemented
-        # self.system.validate()
-        # self.electrons.validate()
+        self.system.validate(self)
+        self.electrons.validate(self)
         # self.ions.validate()
         # self.cell.validate()
 
