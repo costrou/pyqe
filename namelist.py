@@ -6,6 +6,7 @@ These are dictionaries with configuration varaibles.
 # TODO implement to check for key "blank" only used when "key" set to true
 """
 import os
+import re
 from collections import Callable
 
 class Namelist:
@@ -39,14 +40,20 @@ class Namelist:
 
         Ensures: key is valid
         """
+        # We ignore key_index even if it has values
+        key, key_index = self.parseKey(key)
+
         if not self.isDefinedKey(key):
-            error_str += "{0} key: {1} not valid key".format(self.name, key)
+            error_str = "{0} key: {1} not valid key".format(self.name, key)
             raise Exception(error_str)
 
-        key_narg, key_type, key_default, key_range, key_config, key_doc = key_info.getKeyInfo()
+        key_narg, key_type, key_default, key_range, key_config, key_doc = self.getKeyInfo(key)
 
         ## Key name
         keydesc_str = "Key: '{0}'\n".format(key)
+
+        ## Key Number of indicies
+        keydesc_str += "Number Indicies\n   {0}".format(key_narg)
 
         ## Key set value (set by user)
         keydesc_str += "Set Value\n   '{0}'".format(self.getSetKeyValue(key))
@@ -58,7 +65,7 @@ class Namelist:
         keydesc_str += "Default\n"
         if isinstance(key_default, Callable):
             keydesc_str += "   Function Name '{0}'".format(key_default.__name__)
-        keydesc_str += "   Value '{0}'\n".format(self.getKeyDefaultValue(key))
+        keydesc_str += "   Value '{0}'\n".format(self.getDefaultKeyValue(key))
 
         ## Key valid range [2]
         keydesc_str += "Valid Range\n"
@@ -71,8 +78,8 @@ class Namelist:
 
         ## Key config checker (global) [3]
         keydesc_str += "Config:\n"
-        if key_correct:
-            keydesc_str += "   Function Name '{0}'\n".format(key_check.__name__)
+        if key_config:
+            keydesc_str += "   Function Name '{0}'\n".format(key_config.__name__)
         else:
             keydesc_str += "   No Config Function (Assumed Valid)\n"
 
@@ -186,6 +193,25 @@ class Namelist:
             if not status:
                 raise Exception(message)
 
+    def parseKey(self, key):
+        """Keys have many forms:
+        <key_name>(int, int, ... )
+
+        """
+        key_regex = re.compile("^(\w+)$|^(\w+)\(( *\d+ *(?:, *\d+ *)*)\)$")
+        key_match = key_regex.match(key)
+
+        if not key_match:
+            error_str = "malformed key string '{0}'"
+            raise Exception(error_str.format(key))
+
+        key_match = key_match.groups()
+
+        if key_match[0]:
+            return [key_match[0], ()]
+        else:
+            return [key_match[1], tuple(map(int, re.findall("\d+", key_match[2])))]
+
 
     def validateKeypair(self, keypair):
         """Determines if keypair is in domain and range of allowed
@@ -230,8 +256,13 @@ class Namelist:
         """
         # This validates the domain and range of each user set keypair
         # (should really not fail)
+        # We have to treat indicies differently
         for keypair in self.keypairs.items():
-            self.validateKeypair(keypair)
+            if isinstance(keypair[0], dict):
+                for index, value in keypair[0].items():
+                    self.validateKeyPair([keypair[0], value])
+            else:
+                self.validateKeypair(keypair)
 
         # Check that for each key in namelist it is properly
         # configured with respect to its global environment.  (can
@@ -265,9 +296,16 @@ class Namelist:
                  keypair is added to dictionary
 
         """
-        self.validateKeypair(keypair)
+        key_unparsed, value = keypair
+        key, key_index = self.parseKey(key_unparsed)
 
-        key, value = keypair
+        self.validateKeypair([key, value])
+
+        # Check if key came with correct number of args
+        key_narg = self.getKeyInfo(key)[0]
+        if len(key_index) != key_narg:
+            error_str = "{0} key: '{1}' expects {2} indicies {3} given"
+            raise Exception(error_str.format(self.name, key, key_narg, key_index))
 
         # Check if user is setting key to its default value (harmless)
         if value == self.getDefaultKeyValue(key):
@@ -494,7 +532,7 @@ class System(Namelist):
         keypairs = {}
         keys = {
             'ibrav': [0, int, None, self._rangeIbrav, self._checkIbrav],
-            'celldm(i)': [1, float, None, isPositive, self._checkCelldm],
+            'celldm': [1, float, None, isPositive, self._checkCelldm],
             'A': [0, float, None, isPositive, self._checkA],
             'B': [0, float, None, isPositive, self._checkB],
             'C': [0, float, None, isPositive, self._checkC],
@@ -506,7 +544,7 @@ class System(Namelist):
             'nbnd': [0, int, None, isGTFour, None], #TODO default nbnd (insulator)
             'tot_charge': [0, float, 0.0, None, None],
             'tot_magnetization': [0, float, -1.0, isWithinOneOfZero, None],
-            'starting_magnetization(i)': [1, float, None, isWithinOneOfZero, None],
+            'starting_magnetization': [1, float, None, isWithinOneOfZero, None],
             'ecutwfc': [0, float, None, isPositive, None],
             'ecutrho': [0, float, self._defaultEcutrho, isPositive, None],
             'ecutfock': [0, float, self._defaultEcutfock, isPositive, None],
@@ -543,21 +581,21 @@ class System(Namelist):
             'nqx3': [0, int, self._defaultnqx3, isPositive, None],
             'lda_plus_u': [0, bool, False, None, None],
             'lda_plus_u_kind': [0, int, 0, (0, 1), None],
-            'Hubbard_U(i)': [1, float, 0.0, None, None],  #TODO valid range TODO check
-            'Hubbard_J0(i)': [1, float, 0.0, None, None], #TODO valid range TODO check
-            'Hubbard_alpha(i)': [1, float, 0.0, None, None], #TODO valid range TODO check
-            'Hubbard_beta(i)': [1, float, 0.0, None, None], #TODO valid range TODO check
-            'Hubbard_J(i,ityp)': [2, float, 0.0, None, None], #TODO valid range TODO check
-            'starting_ns_eigenvalue(m,ispin,I)': [0, float, -1.0, None, None], #TODO valid range TODO check
+            'Hubbard_U': [1, float, 0.0, None, None],  #TODO valid range TODO check
+            'Hubbard_J0': [1, float, 0.0, None, None], #TODO valid range TODO check
+            'Hubbard_alpha': [1, float, 0.0, None, None], #TODO valid range TODO check
+            'Hubbard_beta': [1, float, 0.0, None, None], #TODO valid range TODO check
+            'Hubbard_J': [2, float, 0.0, None, None], #TODO valid range TODO check
+            'starting_ns_eigenvalue': [0, float, -1.0, None, None], #TODO valid range TODO check
             'U_projection_type': [0, str, 'atomic', ('atomic', 'ortho-atomic', 'norm-atomic', 'file', 'pseduo'), None],
             'edir': [0, int, None, (1, 2, 3), None],
             'emaxpos': [0, float, 0.5, isBtwZeroOne, None],
             'eopreg': [0, float, 0.1, isBtwZeroOne, None], 
             'eamp': [0, float, 0.001, None, None], #TODO range
-            'angle1(i)': [1, float, None, None, None], #TODO check (1 .. ntyp)
-            'angle2(i)': [1, float, None, None, None], #TODO check (1 .. ntyp)
+            'angle1': [1, float, None, None, None], #TODO check (1 .. ntyp)
+            'angle2': [1, float, None, None, None], #TODO check (1 .. ntyp)
             'constrained_magnetization': [0, str, 'none', ('none', 'total', 'atomic', 'total direction', 'atomic direction'), None],
-            'fixed_magnetization(i)': [0, float, 0.0, None, None], #check i (1 .. 3)
+            'fixed_magnetization': [0, float, 0.0, None, None], #check i (1 .. 3)
             'lambda': [0, float, 1.0, None, None],
             'report': [0, int, 1, isPositive, None],
             'lspinorb': [0, bool, None, None, None], #TODO default not specified in docs

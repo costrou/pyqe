@@ -129,7 +129,7 @@ ibrav      structure                   celldm(2)-celldm(6)
          beta is the angle between axis a and c
         gamma is the angle between axis a and b
 """,
-    'celldm(i)': """
+    'celldm': """
 Crystallographic constants - see the "ibrav" variable.
 Specify either these OR A,B,C,cosAB,cosBC,cosAC NOT both.
 Only needed values (depending on "ibrav") must be specified
@@ -236,7 +236,7 @@ If unspecified then tot_magnetization variable is ignored and
 the amount of electronic magnetization is determined during
 the self-consistent cycle.
 """,
-    'starting_magnetization(i)': """
+    'starting_magnetization': """
 starting spin polarization on atomic type 'i' in a spin
 polarized calculation. Values range between -1 (all spins
 down for the valence electrons of atom type 'i') to 1
@@ -570,27 +570,27 @@ Specifies the type of DFT+U calculation:
                   1   rotationally invariant scheme of Liechtenstein et al.,
                       using Hubbard_U and Hubbard_J
 """,
-    'Hubbard_U(i)': """
+    'Hubbard_U': """
 Hubbard_U(i): U parameter (eV) for species i, DFT+U calculation
 """,
-    'Hubbard_J0(i)': """
+    'Hubbard_J0': """
 Hubbard_J0(i): J0 parameter (eV) for species i, DFT+U+J calculation,
 see PRB 84, 115108 (2011) for details.
 """,
-    'Hubbard_alpha(i)': """
+    'Hubbard_alpha': """
 Hubbard_alpha(i) is the perturbation (on atom i, in eV)
 used to compute U with the linear-response method of
 Cococcioni and de Gironcoli, PRB 71, 35105 (2005)
 (only for lda_plus_u_kind=0)
 """,
-    'Hubbard_beta(i)': """
+    'Hubbard_beta': """
 Hubbard_beta(i) is the perturbation (on atom i, in eV)
 used to compute J0 with the linear-response method of
 Cococcioni and de Gironcoli, PRB 71, 35105 (2005)
 (only for lda_plus_u_kind=0). See also
 PRB 84, 115108 (2011).
 """,
-    'Hubbard_J(i,ityp)': """
+    'Hubbard_J': """
 Hubbard_J(i,ityp): J parameters (eV) for species ityp,
 used in DFT+U calculations (only for lda_plus_u_kind=1)
 For p orbitals:  J = Hubbard_J(1,ityp);
@@ -600,7 +600,7 @@ For f orbitals:  J = Hubbard_J(1,ityp), E2 = Hubbard_J(2,ityp),
 If B or E2 or E3 are not specified or set to 0 they will be
 calculated from J using atomic ratios.
 """,
-    'starting_ns_eigenvalue(m,ispin,I)': """
+    'starting_ns_eigenvalue': """
 In the first iteration of an DFT+U run it overwrites
 the m-th eigenvalue of the ns occupation matrix for the
 ispin component of atomic species I. Leave unchanged
@@ -664,12 +664,12 @@ vector "edir". Important: the change of slope of this
 potential must be located in the empty region, or else
 unphysical forces will result.
 """,
-    'angle1(i)': """
+    'angle1': """
 The angle expressed in degrees between the initial
 magnetization and the z-axis. For noncollinear calculations
 only; index i runs over the atom types.
 """,
-    'angle2(i)': """
+    'angle2': """
 The angle expressed in degrees between the projection
 of the initial magnetization on x-y plane and the x-axis.
 For noncollinear calculations only.
@@ -723,7 +723,7 @@ N.B.: symmetrization may prevent to reach the desired orientation
       of the magnetization. Try not to start with very highly symmetric
       configurations or use the nosym flag (only as a last remedy)
 """,
-    'fixed_magnetization(i)': """
+    'fixed_magnetization': """
 total magnetization vector (x,y,z components) to be kept
 fixed when constrained_magnetization='total'
 """,

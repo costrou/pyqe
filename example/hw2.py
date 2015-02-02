@@ -19,7 +19,7 @@ def create_input():
     })
     qe.system.addKeypairs({
         'ibrav': 2,
-        'celldm(i)': 6.73, #Yeah I had to lie for now
+        'celldm(1)': 6.73, 
         'nat': 1,
         'ntyp': 1,
         'ecutwfc': 25.0,
