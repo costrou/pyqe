@@ -28,19 +28,19 @@ class System(Namelist):
         return value in (i for i in range(231))
 
     def _defaultEcutrho(self):
-        return 4.0 * self.getCurrentKeyValue('ecutwfc')
+        return 4.0 * self.get_current_value('ecutwfc')
 
     def _defaultEcutfock(self):
-        return self.getCurrentKeyValue('ecutrho')
+        return self.get_current_value('ecutrho')
 
     def _defaultnqx1(self):
-        return self.getCurrentKeyValue('nr1')
+        return self.get_current_value('nr1')
 
     def _defaultnqx2(self):
-        return self.getCurrentKeyValue('nr2')
+        return self.get_current_value('nr2')
 
     def _defaultnqx3(self):
-        return self.getCurrentKeyValue('nr3')
+        return self.get_current_value('nr3')
 
     def _checkIbrav(self, qe):
         return [True, None]
@@ -73,16 +73,16 @@ class System(Namelist):
         return [True, None]
 
     def _checkNri(self, qe):
-        if not qe.control.getSetKeyValue('nr1') and \
-           qe.control.getSetKeyValue('nr2') and \
-            qe.control.getSetKeyValue('nr3'):
+        if not qe.control.get_set_value('nr1') and \
+           qe.control.get_set_value('nr2') and \
+            qe.control.get_set_value('nr3'):
             return [False, "Must set 'nr1', 'nr2', and 'nr3'"]
         return [True, None]
 
     def _checkNris(self, qe):
-        if not qe.control.getSetKeyValue('nr1s') and \
-           qe.control.getSetKeyValue('nr2s') and \
-            qe.control.getSetKeyValue('nr3s'):
+        if not qe.control.get_set_value('nr1s') and \
+           qe.control.get_set_value('nr2s') and \
+            qe.control.get_set_value('nr3s'):
             return [False, "Must set 'nr1s', 'nr2s', and 'nr3s'"]
         return [True, None]
 
@@ -148,7 +148,7 @@ class System(Namelist):
             'Hubbard_alpha': [1, float, 0.0, None, None], #TODO valid range TODO check
             'Hubbard_beta': [1, float, 0.0, None, None], #TODO valid range TODO check
             'Hubbard_J': [2, float, 0.0, None, None], #TODO valid range TODO check
-            'starting_ns_eigenvalue': [0, float, -1.0, None, None], #TODO valid range TODO check
+            'starting_ns_eigenvalue': [3, float, -1.0, None, None], #TODO valid range TODO check
             'U_projection_type': [0, str, 'atomic', ('atomic', 'ortho-atomic', 'norm-atomic', 'file', 'pseduo'), None],
             'edir': [0, int, None, (1, 2, 3), None],
             'emaxpos': [0, float, 0.5, isBtwZeroOne, None],

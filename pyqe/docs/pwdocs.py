@@ -4,7 +4,7 @@ Moving to module so that I can one day make this work
 with the already done documentation (autoupdating then)
 """
 
-def addDocsToKeys(name, keys):
+def getPWDocForKey(name, key):
     """Adds doc strings to key info lists
     """
     doc_map = {
@@ -20,13 +20,11 @@ def addDocsToKeys(name, keys):
         error_str = "unknown namelist {0} unable to add docs"
         raise Exception(error_str.format(name))
     else:
-        for key, info  in keys.items():
-            key_doc = namelist_doc.get(key)
-            if not key_doc:
-                error_str = "not documentation for key '{0}'"
-                raise Exception(error_str.format(key))
-            else:
-                info.append(key_doc)
+        key_doc = namelist_doc.get(key)
+        if not key_doc:
+            error_str = "no documentation for key '{0}'"
+            raise Exception(error_str.format(key))
+        return key_doc
 
 cell_doc = {
     'cell_dynamics': """

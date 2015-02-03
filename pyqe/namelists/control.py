@@ -18,13 +18,13 @@ class Control(Namelist):
 
     def _defaultNStep(self):
         # Include None because scf is default value
-        if self.getCurrentKeyValue('calculation') in ['scf', 'nscf', None]:
+        if self.get_current_value('calculation') in ['scf', 'nscf', None]:
             return 1
         else:
             return 50
 
     def _defaultTprnfor(self):
-        return self.getCurrentKeyValue('calculation') in ['vc-md', 'vc-relax']
+        return self.get_current_value('calculation') in ['vc-md', 'vc-relax']
 
     def _defaultOutdir(self):
         return os.environ.get('ESPRESSO_TMPDIR', './')
@@ -35,14 +35,14 @@ class Control(Namelist):
 
     def _defaultDiskIO(self):
         # Include None because scf is default value
-        if self.getCurrentKeyValue('calculation') in ['scf', None]:
+        if self.get_current_value('calculation') in ['scf', None]:
             return 'low'
         else:
             return 'medium'
 
     def _checkDirectory(self, key):
         # Check the set key value by user
-        directory = self.getSetKeyValue(key)
+        directory = self.get_set_value(key)
         if directory:
             if os.path.isdir(directory):
                 return [True, None]
@@ -51,7 +51,7 @@ class Control(Namelist):
                 return [False, error_str.format(key, directory)]
 
         # key value was not set by user so check default value
-        directory = self.getDefaultKeyValue(key)
+        directory = self.get_default_value(key)
         if os.path.isdir(directory):
             return [True, None]
 
