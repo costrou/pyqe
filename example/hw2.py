@@ -13,41 +13,65 @@ def create_input():
     """
     As a rough starting template we will use dictionaries
     """
-    qe = QE()
-    qe.control.add_keypairs({
-        'calculation': 'scf',
-        'restart_mode': 'from_scratch',
-        'outdir': './saves/',
-        'pseudo_dir': './',
-        'prefix': 'cu'
-    })
-    qe.system.add_keypairs({
-        'ibrav': 2,
-        'celldm(1)': 6.73,
-        'nat': 1,
-        'ntyp': 1,
-        'ecutwfc': 25.0,
-        'occupations': 'smearing',
-        'smearing': 'gaussian',
-        'degauss': 0.02
-    })
-    qe.electrons.add_keypairs({
-        'diagonalization': 'david',
-    })
-    qe.atomic_species.add_atom_type('Cu', 63.55, 'Cu.blyp-d-hgh.UPF')
+
+    qe_namelists = {
+        "control": {
+            'calculation': 'scf',
+            'restart_mode': 'from_scratch',
+            'outdir': './saves/',
+            'pseudo_dir': './',
+            'prefix': 'cu'
+        },
+        "system": {
+            'ibrav': 2,
+            'celldm(1)': 6.73,
+            'nat': 1,
+            'ntyp': 1,
+            'ecutwfc': 25.0,
+            'occupations': 'smearing',
+            'smearing': 'gaussian',
+            'degauss': 0.02
+        },
+        "electrons": {
+            'diagonalization': 'cg'
+        }
+    }
+
+    qe = QE(qe_namelists)
+
+    qe.atomic_species.add_atom_type('Cu', 63.55, 'Cu.pz-d-rrkjus.UPF')
     qe.atomic_positions.add_atom_position('Cu', [0.0, 0.0, 0.0])
     qe.k_points.automatic([4, 4, 4], [0, 0, 0])
 
     return qe
 
+def bmeos(V0, E0, V, B0, Bprime):
+    eta = np.power(V/V0, 1.0/3.0)
+    term = 9*B0*V0/16.0 * (eta**2 - 1)**2
+    term *= (6 + Bprime * (eta**2 - 1) - 4*eta**2)
+    return E0 + term
+
+# Fitting to Birch–Murnaghan EOS(equation of state)
+def solve_bmeos(volume, energy):
+    index, E0 = min(enumerate(energy), key=lambda row: row[1])
+    V0 = volume[index]
+
+    volume = np.array(volume)
+    energy = np.array(energy)
+    
+    error_func = lambda param, V, E: bmeos(V0, E0, V, param[0], param[1]) - E
+    init_guess = [80.0, 4.0]
+
+    from scipy.optimize import leastsq
+    return leastsq(error_func, init_guess, args=(volume, energy))
+
 
 if __name__ == "__main__":
 
 
-    kpoints = [[1, 1, 1], [2, 2, 2], [4, 4, 4], [8, 8, 8]]
-    lattice_params = np.linspace(5.0, 13.0, 10)
-    #ecutwfc_values = [15.0, 20.0, 25.0, 30.0]
-    ecutwfc_values = [70.0]
+    kpoints = [[8, 8, 8]]
+    lattice_params = np.linspace(5.5, 8.0, 30)
+    ecutwfc_values = [30.0]
 
     data = []
     from itertools import product
@@ -67,38 +91,36 @@ if __name__ == "__main__":
         data.append(["cu.{0}".format(i),
                      kpoint,
                      ecutwfc,
-                     celldm,
-                     results['total energy'][0]])
+                     results['volume'],
+                     results['total energy']])
 
 
     # Write results to files
-    outfilename = "results.txt"
-    with open(outfilename, "w") as outfile:
-        line_str = "{0} | {1} | {2} | {3} | {4}\n"
-        outfile.write(line_str.format(
-            "prefix", "kpoint", "ecutwfc", "celldm", "total energy"))
-        for row in data:
-            outfile.write(line_str.format(
-                row[0], row[1], row[2], row[3], row[4]))
+    import json
+    outfilename = "results.json"
+    json.dump({"header": ["prefix", "kpoint", "ecutwfc", "volume", "total energy"],
+               "data": data},
+              open(outfilename, "w"), indent=4)
 
-    # Plot results
-    plot_data = []
-    ecutwfc = ecutwfc_values[0]
-    for kpoint in kpoints:
-        kpoint_data = [d for d in data if d[1] == kpoint and d[2] == ecutwfc]
-        kpoint_data.sort(key=lambda d: d[3])
-        kpoint_x = [d[3] for d in kpoint_data]
-        kpoint_y = [d[4] for d in kpoint_data]
-        plot_data.append([kpoint_x, kpoint_y])
-
+    # Plot data
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots()
-    title_str = "Energy vs. Lattice Parameter ecutwfc = {0}"
-    ax.set_title(title_str.format(ecutwfc))
-    ax.set_xlabel("Lattice Parameter")
+
+    ax.set_title("Energy vs.Volume Cu fcc")
+    ax.set_xlabel("Volume a.u.^3")
     ax.set_ylabel("Total Energy")
-    for kpoint, [celldm, tot_energy] in zip(kpoints, plot_data):
-        ax.plot(celldm, tot_energy, label="{0}".format(kpoint))
+
+    for kpoint, ecutwfc in product(kpoints, ecutwfc_values):
+        filter_data = filter(lambda row: row[1] == kpoint and row[2] == ecutwfc,
+                             data)
+        volume, energy = zip(*[[row[3], row[4]] for row in filter_data])
+
+        print(solve_bmeos(volume, energy))
+
+        label_str = "kpoint: {0}".format(kpoint)
+        label_str += " ecutwfc: {0}".format(ecutwfc)
+        ax.plot(volume, energy, '.', label=label_str)
+
     ax.legend()
     fig.savefig("hw2.png")
-    fig.show()
+

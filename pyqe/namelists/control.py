@@ -70,7 +70,6 @@ class Control(Namelist):
 
     def __init__(self):
         name = "CONTROL"
-        keypairs = {}
         keys = {
             'calculation': [0, str, 'scf', ('scf', 'nscf', 'bands', 'relax', 'md', 'vc-relax'), None],
             'title': [0, str, '', None, None],
@@ -100,4 +99,4 @@ class Control(Namelist):
             'gdir': [0, int, None, (1, 2, 3), None],
             'nppstr': [0, int, None, isPositive, None]
         }
-        super().__init__(name, keypairs, keys)
+        super().__init__(name, keys)

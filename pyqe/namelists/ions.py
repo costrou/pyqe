@@ -23,7 +23,6 @@ class Ions(Namelist):
     
     def __init__(self):
         name = "IONS"
-        keypairs = {}
         keys = {
             'ion_dynamics': [0, str, self._defaultIonDynamics, ('bfgs', 'damp', 'verlet', 'langevin', 'langevin-smc', 'beeman'), None],
             'ion_positions': [0, str, 'default', ('default', 'from_input'), None],
@@ -44,4 +43,4 @@ class Ions(Namelist):
             'w_1': [0, float, 0.01, None, None], #TODO Check only in bfgs calc
             'w_2': [0, float, 0.5, None, None] #TODO Check only in bfgs calc
         }
-        super().__init__(name, keypairs, keys)
+        super().__init__(name, keys)

@@ -6,7 +6,7 @@ These are dictionaries with configuration varaibles.
 # TODO implement to check for key "blank" only used when "key" set to true
 """
 import re
-from collections import Callable
+from collections import Callable, defaultdict
 
 from pyqe.docs.pwdocs import getPWDocForKey
 
@@ -29,7 +29,6 @@ class KeyInfo():
         self.range = _range
         self.config = config
         self.doc = doc
-        self.validate()
 
     def validate(self):
         """**For Developer**
@@ -214,9 +213,9 @@ class Namelist:
 
     NAMELIST_SPACE = "    "
 
-    def __init__(self, name, keypairs, keys):
+    def __init__(self, name, keys):
         self.name = name
-        self.keypairs = keypairs
+        self.keypairs = defaultdict(dict)
         self.keys = {}
 
         for key, [narg, _type, default, _range, config] in keys.items():
@@ -228,7 +227,7 @@ class Namelist:
                               _range,
                               config,
                               getPWDocForKey(name, key))
-
+            keyinfo.validate()
             self.keys.update({key: keyinfo})
 
     def describe_key(self, key):
@@ -383,10 +382,7 @@ class Namelist:
         if self.get_set_value(key, index):
             print("Warning: Overwritting Key '{0}'".format(key))
 
-        if self.keypairs.get(key):
-            self.keypairs[key].update({index: value})
-        else:
-            self.keypairs[key] = {index: value}
+        self.keypairs[key].update({index: value})
 
 
     def to_string(self):

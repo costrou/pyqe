@@ -16,7 +16,6 @@ class Cell(Namelist):
 
     def __init__(self):
         name = "CELL"
-        keypairs = {}
         keys = {
             'cell_dynamics': [0, str, self._defaultCellDynamics, ('none', 'sd', 'damp-pr', 'bfgs', 'pr', 'w'), None],
             'press': [0, float, 0.0, None, None],
@@ -25,4 +24,4 @@ class Cell(Namelist):
             'press_conv_thr': [0, float, 0.5, None, None],
             'cell_dofree': [0, str, 'all', ('all', 'x', 'y', 'z', 'xy', 'xz', 'yz', 'xyz', 'shape', 'volume', '2Dxy', '2Dshape'), None]
         }
-        super().__init__(name, keypairs, keys)
+        super().__init__(name, keys)

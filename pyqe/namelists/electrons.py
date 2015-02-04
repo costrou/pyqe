@@ -41,4 +41,4 @@ class Electrons(Namelist):
             'startingwfc': [0, str, 'atomic+random', ('atomic', 'atomic+random', 'random', 'file'), None],
             'tqr': [0, bool, False, None, None],
         }
-        super().__init__(name, keypairs, keys)
+        super().__init__(name, keys)

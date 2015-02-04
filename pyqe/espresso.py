@@ -23,7 +23,7 @@ class QE:
      - run pw.x
     """
 
-    def __init__(self):
+    def __init__(self, qe_keypairs):
         self.control = Control()
         self.system = System()
         self.electrons = Electrons()
@@ -38,6 +38,28 @@ class QE:
         #self.occupations = Card("OCCUPATIONS")
         #self.constrains = Card("CONTRAINTS")
         #self.atomicforces = Card("ATOMIC_FORCES")
+
+        self.namelist_asoc = {
+            "control": self.control,
+            "system": self.system,
+            "electrons": self.electrons,
+            "ions": self.ions,
+            "cell": self.cell
+        }
+
+        self.add_keypairs_to_namespace(qe_keypairs)
+
+    def add_keypairs_to_namespace(self, qe_keypairs):
+        """
+        Adds the respective keys to each namelist
+        """
+        for name, keypairs in qe_keypairs.items():
+            namelist = self.namelist_asoc.get(name.lower())
+            if namelist:
+                namelist.add_keypairs(keypairs)
+            else:
+                error_str = "{0} is not valid namelist"
+                raise Exception(error_str.format(name))
 
     def to_string(self, header=True):
         qe_str = ""
@@ -95,10 +117,15 @@ class QE:
 
         import re
         for key, info in values.items():
-            regex, regex_type = info
-            mat = re.search(regex, outstr)
-            if mat:
-                results.update({key: [regex_type(_) for _ in mat.groups()]})
+            regex, _type = info
+            result = re.search(regex, outstr)
+            if result:
+                matches = [_type(_) for _ in result.groups()]
+                if len(matches) == 1:
+                    results.update({key: matches[0]})
+                else:
+                    results.update({key: matches})
+
         return results
 
     def to_file(self, filename, input_format="fortran"):

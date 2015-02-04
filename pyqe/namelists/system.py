@@ -91,7 +91,6 @@ class System(Namelist):
 
     def __init__(self):
         name = "SYSTEM"
-        keypairs = {}
         keys = {
             'ibrav': [0, int, None, self._rangeIbrav, self._checkIbrav],
             'celldm': [1, float, None, isPositive, self._checkCelldm],
@@ -178,5 +177,4 @@ class System(Namelist):
             'origin_choice': [0, int, 1, (1, 2, 3), None], # TODO Maybe there are more possible origins?
             'rhombohedral': [0, bool, True, None, None]
         }
-
-        super().__init__(name, keypairs, keys)
+        super().__init__(name, keys)
