@@ -152,8 +152,8 @@ class KeyPair():
 
         # Check if key is valid
         if not keyinfo:
-            error_str += "{0} key: '{1}' invalid name"
-            raise Exception(error_str.format(self.name, key))
+            error_str = "{0} key: '{1}' invalid name"
+            raise Exception(error_str.format(namelist.name, self.key))
 
         # Check if key came with correct number of args
         if len(self.index) != keyinfo.narg:

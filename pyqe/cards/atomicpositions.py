@@ -38,18 +38,12 @@ class AtomicPositions:
                  this option are uniqueb, origin_choice, and
                  rhombohedral.
     """
-    options = ["alat", "bhor", "crystal", "crystal_sg", "angstrom"]
+    options = ("alat", "bhor", "crystal", "crystal_sg", "angstrom")
 
     def __init__(self):
         self.name = "ATOMIC_POSITIONS"
         self.option = None
         self.atom_positions = []
-
-    def num_atom_positions(self):
-        """
-        returns the numbers of atom positions defined
-        """
-        return len(self.atom_positions)
 
     def add_atom_position(self, symbol, position, option="alat"):
         """
