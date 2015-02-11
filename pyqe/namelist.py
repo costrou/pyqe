@@ -375,12 +375,12 @@ class Namelist:
         keypair.validate(self)
 
         # Check if user is setting key to its default value (harmless)
-        if value == self.get_default_value(key):
-            print("Warning: Setting Key '{0}' to its default value".format(key))
+        # if value == self.get_default_value(key):
+        #     print("Warning: Setting Key '{0}' to its default value".format(key))
 
         # Check if user is overwritting key (harmless)
-        if self.get_set_value(key, index):
-            print("Warning: Overwritting Key '{0}'".format(key))
+        # if self.get_set_value(key, index):
+        #     print("Warning: Overwritting Key '{0}'".format(key))
 
         self.keypairs[key].update({index: value})
 

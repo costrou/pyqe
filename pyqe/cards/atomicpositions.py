@@ -2,8 +2,6 @@
 Card: Atomic Positions
 
 """
-import numpy as np
-
 QE_TAB = "   "
 
 class AtomicPositions:
@@ -63,7 +61,7 @@ class AtomicPositions:
             raise Exception(error_str)
 
         self.option = option
-        self.atom_positions.append([symbol, np.array(position)])
+        self.atom_positions.append([symbol, position])
 
     def validate(self):
         """

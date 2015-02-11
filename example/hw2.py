@@ -9,16 +9,40 @@ from pyqe import QE
 
 import numpy as np
 
-def create_input():
-    """
-    As a rough starting template we will use dictionaries
-    """
+# Burch Murnahan EOS
+def bmeos(V0, E0, B0, BP, V):
+    eta = np.power(V0 / V, 1.0/3.0)
+    term1 = (eta**2 - 1)**3 * BP
+    term2 = (eta**2 - 1)**2 * (6.0 - 4*eta**2)
+    return E0 + 9*B0*V0/16.0 * (term1 + term2)
 
-    qe_namelists = {
+
+# Fitting to Birch–Murnaghan EOS(equation of state)
+def solve_bmeos(volume, energy):
+    volume = np.array(volume)
+    energy = np.array(energy)
+
+    a, b, c = np.polyfit(volume, energy, 2)
+    V0 = -b/(2*a)
+    E0 = a*V0**2 + b*V0 + c
+    B0 = 2*a*V0
+    BP = 3.5
+    init_guess = (V0, E0, B0, BP)
+
+    def error_func(param, V, E):
+        V0, E0, B0, BP = param
+        return E - bmeos(V0, E0, B0, BP, V)
+
+    from scipy.optimize import leastsq
+    return leastsq(error_func, init_guess, args=(volume, energy))
+
+
+if __name__ == "__main__":
+
+    qe_namelist = {
         "control": {
             'calculation': 'scf',
-            'restart_mode': 'from_scratch',
-            'outdir': './saves/',
+            'outdir': './saasdlfasjdlfksajves/',
             'pseudo_dir': './',
             'prefix': 'cu'
         },
@@ -37,62 +61,45 @@ def create_input():
         }
     }
 
-    qe = QE(qe_namelists)
-
-    qe.atomic_species.add_atom_type('Cu', 63.55, 'Cu.pz-d-rrkjus.UPF')
-    qe.atomic_positions.add_atom_position('Cu', [0.0, 0.0, 0.0])
-    qe.k_points.automatic([4, 4, 4], [0, 0, 0])
-
-    return qe
-
-def bmeos(V0, E0, V, B0, Bprime):
-    eta = np.power(V/V0, 1.0/3.0)
-    term = 9*B0*V0/16.0 * (eta**2 - 1)**2
-    term *= (6 + Bprime * (eta**2 - 1) - 4*eta**2)
-    return E0 + term
-
-# Fitting to Birch–Murnaghan EOS(equation of state)
-def solve_bmeos(volume, energy):
-    index, E0 = min(enumerate(energy), key=lambda row: row[1])
-    V0 = volume[index]
-
-    volume = np.array(volume)
-    energy = np.array(energy)
-    
-    error_func = lambda param, V, E: bmeos(V0, E0, V, param[0], param[1]) - E
-    init_guess = [80.0, 4.0]
-
-    from scipy.optimize import leastsq
-    return leastsq(error_func, init_guess, args=(volume, energy))
-
-
-if __name__ == "__main__":
-
-
     kpoints = [[8, 8, 8]]
-    lattice_params = np.linspace(5.5, 8.0, 30)
-    ecutwfc_values = [30.0]
+    lattice_params = np.linspace(6.00, 8.00, 10)
+    ecutwfc_values = [20.0, 40.0, 60.0, 80.0]
+
+    # Convert a.u.^3 to angstroms
+
+    bhor = 0.529177249 # Angstroms/bhor
+    Ry = 13.605698066 # eV/Ry
+    AeVtoGPa = 160.2176487 #GPa/(eV/A^3)
 
     data = []
     from itertools import product
-    qe = create_input()
     for i, [kpoint, celldm, ecutwfc] in enumerate(product(
             kpoints, lattice_params, ecutwfc_values)):
+        print("iter {0} celldm{1}".format(i, celldm))
 
         prefix = "cu.{0}".format(i)
-        qe.control.add_keypairs({"prefix": prefix})
-        qe.system.add_keypairs({"ecutwfc": ecutwfc,
-                                "celldm(1)": celldm})
+        qe_namelist['control']['prefix'] = prefix
+        qe_namelist['system']['ecutwfc'] = ecutwfc
+        qe_namelist['system']['celldm(1)'] = celldm
+
+        qe = QE(qe_namelist)
+
+        qe.atomic_species.add_atom_type('Cu', 63.55, 'Cu.pbe-mt_fhi.UPF')
+        qe.atomic_positions.add_atom_position('Cu', [0.0, 0.0, 0.0])
         qe.k_points.automatic(kpoint, [0, 0, 0])
+
         qe.validate()
 
-        results = qe.run()
+        results = qe.run(infile="in", outfile="out", errfile="err")
+
+        volume = results['volume'] * bhor**3
+        energy = results['total energy'] * Ry
 
         data.append(["cu.{0}".format(i),
                      kpoint,
                      ecutwfc,
-                     results['volume'],
-                     results['total energy']])
+                     volume,
+                     energy])
 
 
     # Write results to files
@@ -105,22 +112,29 @@ if __name__ == "__main__":
     # Plot data
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots()
-
-    ax.set_title("Energy vs.Volume Cu fcc")
-    ax.set_xlabel("Volume a.u.^3")
-    ax.set_ylabel("Total Energy")
-
     for kpoint, ecutwfc in product(kpoints, ecutwfc_values):
-        filter_data = filter(lambda row: row[1] == kpoint and row[2] == ecutwfc,
-                             data)
-        volume, energy = zip(*[[row[3], row[4]] for row in filter_data])
+        volume, energy = zip(*[[row[3], row[4]] for row in data if \
+                               row[1] == kpoint and row[2] == ecutwfc])
 
-        print(solve_bmeos(volume, energy))
-
+        # Data Points
         label_str = "kpoint: {0}".format(kpoint)
         label_str += " ecutwfc: {0}".format(ecutwfc)
         ax.plot(volume, energy, '.', label=label_str)
 
+        # Fitting
+        result, iteration = solve_bmeos(volume, energy)
+
+        x_pts = np.linspace(min(volume), max(volume), 1000)
+        y_pts = bmeos(result[0], result[1], result[2], result[3], x_pts)
+        
+        bulk_modulus = result[2] * AeVtoGPa
+        label_str = "Bulk Modulus: {0:.2f} [GPa]"
+        ax.plot(x_pts, y_pts, '-', label=label_str.format(bulk_modulus))
+
     ax.legend()
-    fig.savefig("hw2.png")
+    ax.set_title("Energy vs.Volume Cu fcc")
+    ax.set_xlabel("Volume [A^3]")
+    ax.set_ylabel("Total Energy [eV]")
+    fig.set_size_inches(20.0, 12.0)
+    fig.savefig("hw2.png", dpi=200)
 

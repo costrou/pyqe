@@ -1,8 +1,6 @@
 """Card: Cell Parameters
 
 """
-import numpy as np
-
 class CellParameters:
     """
     Card: CELL_PARAMETERS
@@ -43,7 +41,7 @@ class CellParameters:
             raise Exception(error_str)
 
         self.option = option
-        self.lattice_vec = np.array([vec1, vec2, vec3])
+        self.lattice_vec = [vec1, vec2, vec3]
 
     def validate(self):
         """

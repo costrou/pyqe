@@ -1,8 +1,6 @@
 """Card: KPoints
 
 """
-import numpy as np
-
 QE_TAB = "   "
 
 class KPoints:
@@ -47,7 +45,7 @@ class KPoints:
             raise Exception("Must be vector len 3")
 
         self.option = "automatic"
-        self.config = [np.array(grid), np.array(offset)]
+        self.config = [grid, offset]
 
     def validate(self):
         """

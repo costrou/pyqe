@@ -2,8 +2,6 @@
 Card Atomic Species
 
 """
-import numpy as np
-
 QE_TAB = "   "
 
 class AtomicSpecies:

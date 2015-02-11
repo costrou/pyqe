@@ -153,16 +153,19 @@ class QE:
         """
         from subprocess import Popen, PIPE
 
+        prefix = ["mpirun", "-np", "2"]
+        postfix = []
+
         if infile != "":
             self.to_file(infile)
 
-            pw_command = ["pw.x", '-i', infile]
+            pw_command = prefix + ["pw.x", '-i', infile] + postfix
             proc = Popen(pw_command, stdout=PIPE, stderr=PIPE)
             pw_output = proc.communicate()
         else:
             pw_input = self.to_string()
 
-            pw_command = ["pw.x"]
+            pw_command = prefix + ["pw.x"] + postfix
             proc = Popen(pw_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
             pw_output = proc.communicate(pw_input.encode())
 
