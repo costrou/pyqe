@@ -103,28 +103,123 @@ class QE:
         Retruns a dictionary of interesting values
         Uses regular expressions extensiely
         """
+        import re
+
+        # Extract the information from the header
+        header_end = outstr.find("Self-consistent Calculation")
+        header_str = outstr[:header_end]
+
+        scf_block_begin = outstr.find("Self-consistent Calculation")
+        scf_block_end = outstr.find("convergence has been achieved in")
+        scf_block_str = outstr[scf_block_begin:scf_block_end]
+
+        bfgs_steps = []
+        if self.control.get_current_value('calculation') in ['relax', 'vc-relax']:
+            bfgs_begin = outstr.find("BFGS Geometry Optimization")
+            bfgs_end = outstr.find("End of BFGS Geometry Optimization")
+            bfgs_str = outstr[bfgs_begin:bfgs_end]
+
+            bfgs_block_begin = bfgs_str.find("number of scf cycles")
+            bfgs_block_end = bfgs_str.find("Writing output data file")
+
+            if bfgs_block_begin == -1:
+                final_begin = outstr.find("Final energy")
+                final_end = outstr.find("End final coordinates")
+                final_str = outstr[final_begin:final_end]
+                bfgs_steps.append((scf_block_str, final_str))
+            else:
+                bfgs_block_str = bfgs_str[bfgs_block_begin:bfgs_block_end]
+                bfgs_steps.append((scf_block_str, bfgs_block_str))
+
+                current_pos = bfgs_block_end + 10 #HACK fix!!!!
+
+                while True:
+                    scf_block_begin = bfgs_str[current_pos:].find("Self-consistent Calculation")
+                    scf_block_end = bfgs_str[current_pos:].find("convergence has been achieved in")
+                    scf_block_str = bfgs_str[current_pos:][scf_block_begin:scf_block_end]
+
+                    bfgs_block_begin = bfgs_str[current_pos:].find("number of scf cycles")
+                    bfgs_block_end = bfgs_str[current_pos:].find("Writing output data file")
+
+                    if bfgs_block_begin == -1:
+                        final_begin = outstr.find("Final enthalpy")
+                        final_end = outstr.find("End final coordinates")
+                        final_str = outstr[final_begin:final_end]
+                        bfgs_steps.append((scf_block_str, final_str))
+                        break
+
+                    bfgs_block_str = bfgs_str[current_pos:][bfgs_block_begin:bfgs_block_end]
+                    bfgs_steps.append((scf_block_str, bfgs_block_str))
+
+                    current_pos += bfgs_block_end + 10 #HACK fix!!!!
+        else:
+            bfgs_steps.append((scf_block_str, ""))
+
+        footer_begin = outstr.find("init_run")
+        footer_str = outstr[footer_begin:]
+
         results = {}
 
-        # Name | Regular Expression
-        values = {
-            "total energy": ("!\s+total energy\s+=\s+([+-]\d+\.\d+) Ry", float),
+        ## Begin parsing the blocked strings
+        # Parse the header string for needed values
+        header_values = {
             "lattice index": ("bravais-lattice index\s+=\s+(\d+)", float),
             "lattice parameter": ("lattice parameter \(alat\)\s+=\s+(\d+\.\d+) a\.u\.", float),
             "volume": ("unit-cell volume\s+=\s+(\d+\.\d+) \(a\.u\.\)\^3", float),
             "number electrons": ("number of electrons\s+=\s+(\d+\.\d+)", float),
-            "cell dimensions": ("\s+celldm\(1\)=\s+(\d+\.\d+)\s+celldm\(2\)=\s+(\d+\.\d+)\s+celldm\(3\)=\s+(\d+\.\d+)\s+celldm\(4\)=\s+(\d+\.\d+)\s+celldm\(5\)=\s+(\d+\.\d+)\s+celldm\(6\)=\s+(\d+\.\d+)", float)
         }
 
-        import re
-        for key, info in values.items():
-            regex, _type = info
-            result = re.search(regex, outstr)
+        header = {}
+        for key, (regex, _type) in header_values.items():
+            result = re.search(regex, header_str)
             if result:
-                matches = [_type(_) for _ in result.groups()]
-                if len(matches) == 1:
-                    results.update({key: matches[0]})
-                else:
-                    results.update({key: matches})
+                header.update({key: result.group(1)})
+
+        results.update({"header": header})
+
+        # Parse the results of calculation
+        total_energy_regex = re.compile("!\s+total energy\s+=\s+([+-]\d+\.\d+) Ry")
+        volume_regex = re.compile("new unit-cell volume\s=\s+(\d+\.\d+) a\.u\.\^3")
+        lattice_regex = re.compile("CELL_PARAMETERS.*\s+([-+]?\d+\.\d+)\s+([-+]?\d+\.\d+)\s+([-+]?\d+\.\d+)\s+\s+([-+]?\d+\.\d+)\s+([-+]?\d+\.\d+)\s+([-+]?\d+\.\d+)\s+\s+([-+]?\d+\.\d+)\s+([-+]?\d+\.\d+)\s+([-+]?\d+\.\d+)")
+        ion_position_regex = re.compile("([A-Z][a-z]?)\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)")
+
+        calculation = {}
+        iterations = []
+        for scf_block, bgfs_block in bfgs_steps:
+            result = total_energy_regex.search(scf_block)
+            total_energy = float(result.group(1))
+
+            volume = None
+            lattice = None
+            if self.control.get_current_value('calculation') == 'vc-relax':
+                result = volume_regex.search(bgfs_block)
+                volume = float(result.group(1))
+
+                result = new_lattice_regex.search(bgfs_block)
+                lattice = [float(_) for _ in result.groups()]
+                lattice = [lattice[0:3],
+                           lattice[3:6],
+                           lattice[6:9]]
+
+            ion_positions = None
+            if self.control.get_current_value('calculation') in ['relax', 'vc-relax']:
+                ion_positions = [[_[0], float(_[1]), float(_[2]), float(_[3])] \
+                                     for _ in ion_position_regex.findall(bgfs_block)]
+
+            iterations.append({"total energy": total_energy,
+                               "volume": volume,
+                               "lattice": lattice,
+                               "ion positions": ion_positions})
+
+        calculation.update({"iterations": iterations})
+        calculation.update({"total energy": iterations[-1]['total energy']})
+        calculation.update({"volume": iterations[-1]['volume']})
+        calculation.update({"lattice": iterations[-1]['lattice']})
+        calculation.update({"ion positions": iterations[-1]['ion positions']})
+
+        results.update({"calculation": calculation})
+
+        print(results)
 
         return results
 
@@ -153,7 +248,7 @@ class QE:
         """
         from subprocess import Popen, PIPE
 
-        prefix = ["mpirun", "-np", "2"]
+        prefix = []
         postfix = []
 
         if infile != "":

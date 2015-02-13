@@ -42,7 +42,7 @@ if __name__ == "__main__":
     qe_namelist = {
         "control": {
             'calculation': 'scf',
-            'outdir': './saasdlfasjdlfksajves/',
+            'outdir': './saves/',
             'pseudo_dir': './',
             'prefix': 'cu'
         },
