@@ -163,17 +163,42 @@ class QE:
         ## Begin parsing the blocked strings
         # Parse the header string for needed values
         header_values = {
-            "lattice index": ("bravais-lattice index\s+=\s+(\d+)", float),
-            "lattice parameter": ("lattice parameter \(alat\)\s+=\s+(\d+\.\d+) a\.u\.", float),
-            "volume": ("unit-cell volume\s+=\s+(\d+\.\d+) \(a\.u\.\)\^3", float),
-            "number electrons": ("number of electrons\s+=\s+(\d+\.\d+)", float),
+            "bravais-lattice index": (r"bravais-lattice index\s+=\s+(\d+)", float),
+            "lattice parameter": (r"lattice parameter \(alat\)\s+=\s+(\d+\.\d+) a\.u\.", float),
+            "volume": (r"unit-cell volume\s+=\s+(\d+\.\d+) \(a\.u\.\)\^3", float),
+            "number atoms/cell": (r"number of atoms/cell\s+=\s+(\d+)", int),
+            "number atom types": (r"number of atomic types\s+=\s+(\d+)", int),
+            "number electrons": (r"number of electrons\s+=\s+(\d+\.\d+)", float),
+            "number of Kohn Sham states": (r"number of Kohn Sham states\s*=\s+(\d+)", int),
+            "kinetic-energy cutoff": (r"kinetic-energy cutoff\s+=\s+(\d+\.\d+)\s+Ry", float),
+            "charge density cutoff": (r"charge density cutoff\s+=\s+(\d+\.\d+)\s+Ry", float),
+            "convergence threshold": (r"convergence threshold\s+=\s+(\d+\.\d+(?:[eE][-+]?[0-9]+)?)", float),
+            "mixing beta": (r"mixing beta\s+=\s+(\d+\.\d+)", float),
+            "nstep": (r"nstep\s+=\s=(\d+)", int),
+            "celldm": (r"celldm\(1\)=\s+(\d+\.\d+)\s+celldm\(2\)=\s+(\d+\.\d+)\s+celldm\(3\)=\s+(\d+\.\d+)\s+celldm\(4\)=\s+(\d+\.\d+)\s+celldm\(5\)=\s+(\d+\.\d+)\s+celldm\(6\)=\s+(\d+\.\d+)", float),
+            "crystal axes": (r"a\(1\)\s+=\s+\(\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)\s+\)\s+a\(2\)\s+=\s+\(\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)\s+\)\s+a\(3\)\s+=\s+\(\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)\s+\)\s+",float),
+            "reciprocal axes": (r"b\(1\)\s+=\s+\(\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)\s+\)\s+b\(2\)\s+=\s+\(\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)\s+\)\s+b\(3\)\s+=\s+\(\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)\s+\)\s+",float),
+            "FFT dimensions": (r"FFT dimensions:\s+\(\s+(\d+),\s+(\d+),\s+(\d+)\)", int),
         }
 
         header = {}
+
+        # Find matching keypairs
         for key, (regex, _type) in header_values.items():
-            result = re.search(regex, header_str)
-            if result:
-                header.update({key: result.group(1)})
+            match = re.search(regex, header_str)
+            if match:
+                if len(match.groups()) == 1:
+                    header.update({key: _type(match.groups()[0])})
+                else:
+                    header.update({key: [_type(_) for _ in match.groups()]})
+
+        # Find all kpoints
+        kpoint_regex = re.compile(r"k\(\s+(\d+)\)\s+=\s+\(\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)\s+([+-]?\d+\.\d+)\), wk = \s+(\d+\.\d+)")
+        matches = kpoint_regex.findall(header_str)
+        kpoints = []
+        for match in matches:
+            kpoints.append([match[0], [match[1], match[2], match[3]], match[4]])
+        header.update({"kpoints": kpoints})
 
         results.update({"header": header})
 
