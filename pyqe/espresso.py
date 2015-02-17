@@ -114,11 +114,12 @@ class QE:
         scf_block_str = outstr[scf_block_begin:scf_block_end]
 
         bfgs_steps = []
-        if self.control.get_current_value('calculation') in ['relax', 'vc-relax']:
-            bfgs_begin = outstr.find("BFGS Geometry Optimization")
-            bfgs_end = outstr.find("End of BFGS Geometry Optimization")
-            bfgs_str = outstr[bfgs_begin:bfgs_end]
 
+        bfgs_begin = outstr.find("BFGS Geometry Optimization")
+        bfgs_end = outstr.find("End of BFGS Geometry Optimization")
+        bfgs_str = outstr[bfgs_begin:bfgs_end]
+
+        if bfgs_str:
             bfgs_block_begin = bfgs_str.find("number of scf cycles")
             bfgs_block_end = bfgs_str.find("Writing output data file")
 
@@ -211,36 +212,31 @@ class QE:
         calculation = {}
         iterations = []
         for scf_block, bgfs_block in bfgs_steps:
-            result = total_energy_regex.search(scf_block)
-            total_energy = float(result.group(1))
+            iteration = {}
 
-            volume = None
+            match = total_energy_regex.search(scf_block)
+            iteration.update({"total energy": float(match.group(1))})
+
+            match = volume_regex.search(bgfs_block)
+            if match:
+                iteration.update({"volume": float(match.group(1))})
+
+            match = lattice_regex.search(bgfs_block)
             lattice = None
-            if self.control.get_current_value('calculation') == 'vc-relax':
-                result = volume_regex.search(bgfs_block)
-                volume = float(result.group(1))
+            if match:
+                lattice = [float(_) for _ in match.groups()]
+                iteration.update({"lattice": [lattice[0:3],
+                                              lattice[3:6],
+                                              lattice[6:9]]})
 
-                result = new_lattice_regex.search(bgfs_block)
-                lattice = [float(_) for _ in result.groups()]
-                lattice = [lattice[0:3],
-                           lattice[3:6],
-                           lattice[6:9]]
+            match = ion_position_regex.findall(bgfs_block)
+            if match:
+                iteration.update({"ion positions": [[_[0], float(_[1]), float(_[2]), float(_[3])] for _ in match]})
 
-            ion_positions = None
-            if self.control.get_current_value('calculation') in ['relax', 'vc-relax']:
-                ion_positions = [[_[0], float(_[1]), float(_[2]), float(_[3])] \
-                                     for _ in ion_position_regex.findall(bgfs_block)]
-
-            iterations.append({"total energy": total_energy,
-                               "volume": volume,
-                               "lattice": lattice,
-                               "ion positions": ion_positions})
+            iterations.append(iteration)
 
         calculation.update({"iterations": iterations})
-        calculation.update({"total energy": iterations[-1]['total energy']})
-        calculation.update({"volume": iterations[-1]['volume']})
-        calculation.update({"lattice": iterations[-1]['lattice']})
-        calculation.update({"ion positions": iterations[-1]['ion positions']})
+        calculation.update(iterations[-1])
 
         results.update({"calculation": calculation})
 
