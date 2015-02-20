@@ -12,6 +12,7 @@ for details on the input format to PW
 """
 from pyqe.cards import AtomicSpecies, AtomicPositions, KPoints, CellParameters
 from pyqe.namelists import Control, System, Electrons, Ions, Cell
+import sys
 
 class QE:
     """
@@ -284,16 +285,22 @@ class QE:
             pw_output = proc.communicate(pw_input.encode())
 
         proc.wait()
+        if proc.returncode != 0:
+            with open("CRASH", "r") as f:
+                print("Quantum Espresso CRASH FILE:\n{0}".format(f.read()),
+                       file=sys.stderr)
+            raise Exception("pw.x CRASHED")
+                
         pw_out = pw_output[0].decode()
         pw_err = pw_output[1].decode()
 
         if outfile != "":
-            with open(outfile, "w") as out_file:
-                out_file.write(pw_out)
+            with open(outfile, "w") as f:
+                f.write(pw_out)
 
         if errfile != "":
-            with open(errfile, "w") as err_file:
-                err_file.write(pw_err)
+            with open(errfile, "w") as f:
+                f.write(pw_err)
 
         return self.parse_output(pw_out)
 
