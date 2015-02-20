@@ -240,8 +240,6 @@ class QE:
 
         results.update({"calculation": calculation})
 
-        print(results)
-
         return results
 
     def to_file(self, filename, input_format="fortran"):

@@ -1,4 +1,6 @@
-Quantum Espresso - Python Interface
+=========
+Quantum Espresso - Python Toolkit
+=========
 
 _pyqe_ is an interface for interacting with Quantum Espresso. It
 offers many convinent features for running DFT calculations. It allows
