@@ -243,6 +243,45 @@ class QE:
 
         return results
 
+    def read_charge_density(self, inputfile):
+        """
+        Reads charge-density.dat file
+        """
+        import re
+        import struct
+        import numpy as np
+
+        f = open(inputfile, "rb")
+        charge_xml = f.read()
+
+        info_str = b'<INFO nr1="(\d+)" nr2="(\d+)" nr3="(\d+)"/>'
+        match = re.search(info_str, charge_xml)
+        nr1, nr2, nr3 = [int(_.decode()) for _ in match.groups()]
+
+        data = []
+        for nrz in range(nr3):
+            nrz_start_str = r'<z\.{0} type="(\w+)" size="(\d+)" kind="(\d+)">\n'.format(nrz+1)
+            nrz_end_str = r'\n    </z\.{0}>\n'.format(nrz+1)
+
+            match_start = re.search(nrz_start_str.encode(), charge_xml)
+            match_end = re.search(nrz_end_str.encode(), charge_xml)
+
+            _type, size, kind = match_start.groups()
+            _type, size, kind = str(_type), int(size), int(kind)
+            ind = match_start.end(), match_end.start()
+
+            # Charge Density Format
+            # For each nrz
+            # 12 bytes header ... is it from a struct?
+            # nr1*nr2 doubles
+            # 24 bytes footer ... must be from the struct
+
+            data += struct.unpack("d"*size, charge_xml[ind[0]+12:ind[1]-24])
+
+        charge_data = np.array(data, order='F', ndmin=3)
+        charge_data.shape = [nr1, nr2, nr3]
+        return charge_data
+
     def to_file(self, filename, input_format="fortran"):
         """
         Writes QE configuration to <filename>
