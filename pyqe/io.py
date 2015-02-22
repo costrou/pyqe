@@ -2,12 +2,46 @@
 A module for reading the output of 
 """
 import re
-double_regex = r'[-+]?\d+\.\d+(?:[eE][-+]?\d+)?'
-int_regex = '[+-]?\d+'
-
+import os
 import struct
 import numpy as np
 import xml.etree.ElementTree as ET
+
+double_regex = r'[-+]?\d+\.\d+(?:[eE][-+]?\d+)?'
+int_regex = '[+-]?\d+'
+
+
+def qe_xml_tag_value(tag):
+    """
+    This function assumes that the tag's text holds a
+    string, vector, (vector, matrix, constant) of either int or float
+    """
+    _type = tag.attrib.get("type")
+    size = int(tag.attrib.get("size", 1))
+    col = int(tag.attrib.get("columns", 1))
+
+    if _type == "char":
+        value =  tag.text
+    elif _type == "real":
+        value = np.array(
+            [float(_) for _ in re.findall(double_regex, tag.text)])
+        if size == 1:
+            value = value[0]
+        else:
+            value.shape = [size / col, col]
+    elif _type == "integer":
+        value = np.array(
+            [int(_) for _ in re.findall(int_regex, tag.text)])
+        if size == 1:
+            value = value[0]
+        else:
+            value.shape = [size / col, col]
+    else:
+        error_str = "Type {0} qe xml conversion not supported"
+        raise Exception(error_str.format(_type))
+
+    return value
+
 
 def read_out_file(output_str):
     """
@@ -178,6 +212,54 @@ def read_out_calculation(bfgs_steps):
     calculation.update(iterations[-1])
 
     return calculation
+
+
+def read_data_file(inputfile):
+    """Reads `data-file.xml` file.
+
+    Returns a data structure with all the information about the saved run.
+    Some things are not provided in this file such as the total energy
+    which is available in the output file.
+
+    *Not all values are read in because I have not needed them.*
+
+    Main tags:
+    HEADER, CONTROL, IONS, SYMMETRIES, ELECTRIC-FIELD, PLANE-WAVES
+    SPIN, MAGNETIZATION-INIT, EXCHANGE-CORRELATION, OCCUPATIONS,
+    BRILLOUIN-ZONE, PARRALLELISM, CHARGE-DENSITY, BAND-STRUCTURE-INFO,
+    EIGENVALUES, EIGENVECTORS
+
+    Currently Implemented:
+    CHARGE-DENSITY, EIGENVALUES
+    """
+    tree = ET.parse(inputfile)
+    root = tree.getroot()
+
+    data = {}
+
+    # TAG: CHARGE-DENSITY
+    charge_density_file = root.find("CHARGE-DENSITY").attrib.get("iotk_link")
+    data.update({"charge-density": read_charge_density_file(
+            os.path.dirname(inputfile) + charge_density_file)})
+
+    # TAG: EIGENVALUES
+    eigenvalues_tag = root.find("EIGENVALUES")
+    eigenvalues = []
+    for eigenvalue_tag in eigenvalues_tag:
+        eigenvalue = {
+            "coord": qe_xml_tag_value(eigenvalue_tag.find("K-POINT_COORDS")),
+            "weight": qe_xml_tag_value(eigenvalue_tag.find("WEIGHT")),
+        }
+
+        eigenvalue_file = eigenvalue_tag.find("DATAFILE").attrib.get("iotk_link")
+        eigenvalue.update(read_eigenvalue_file(
+            os.path.dirname(inputfile) + eigenvalue_file))
+
+        eigenvalues.append(eigenvalue)
+    data.update({"eigenvalues": eigenvalues})
+
+    return data
+
 
 def read_charge_density_file(inputfile):
     """
