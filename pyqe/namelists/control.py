@@ -99,4 +99,4 @@ class Control(Namelist):
             'gdir': [0, int, None, (1, 2, 3), None],
             'nppstr': [0, int, None, isPositive, None]
         }
-        super().__init__(name, keys)
+        Namelist.__init__(self, name, keys)

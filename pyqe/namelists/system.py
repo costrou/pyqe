@@ -177,4 +177,4 @@ class System(Namelist):
             'origin_choice': [0, int, 1, (1, 2, 3), None], # TODO Maybe there are more possible origins?
             'rhombohedral': [0, bool, True, None, None]
         }
-        super().__init__(name, keys)
+        Namelist.__init__(self, name, keys)

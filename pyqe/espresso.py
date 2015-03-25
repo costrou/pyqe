@@ -141,10 +141,9 @@ class QE:
         proc.wait()
         if proc.returncode != 0:
             with open("CRASH", "r") as f:
-                print("Quantum Espresso CRASH FILE:\n{0}".format(f.read()),
-                       file=sys.stderr)
+                print("Quantum Espresso CRASH FILE:\n{0}".format(f.read()), file=sys.stderr)
             raise Exception("pw.x CRASHED")
-                
+
         pw_out = pw_output[0].decode()
         pw_err = pw_output[1].decode()
 
@@ -178,5 +177,3 @@ class QE:
         # self.occupations.validate()
         # self.constrains.validate()
         # self.atomicforces.validate()
-
-

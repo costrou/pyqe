@@ -24,4 +24,4 @@ class Cell(Namelist):
             'press_conv_thr': [0, float, 0.5, None, None],
             'cell_dofree': [0, str, 'all', ('all', 'x', 'y', 'z', 'xy', 'xz', 'yz', 'xyz', 'shape', 'volume', '2Dxy', '2Dshape'), None]
         }
-        super().__init__(name, keys)
+        Namelist.__init__(self, name, keys)
