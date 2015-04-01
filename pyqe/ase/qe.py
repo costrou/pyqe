@@ -1,8 +1,8 @@
 from ase.calculators.calculator import Calculator, all_changes, all_properties
-from pyqe.espresso import QEBase
+from pyqe.espresso import PWBase
 import numpy as np
 
-class QE(QEBase, Calculator):
+class QE(PWBase, Calculator):
     """Quantum Espresso ASE Calculator
     
     """
@@ -48,8 +48,8 @@ class QE(QEBase, Calculator):
         fft_mesh:
             [nr1, nr2, nr3] - fft mesh to use for calculation
         keypairs:
-            way to initialize via the base class QEBase. 
-            (DO NOT SET CELL OR ATOM POSITIONS via QEBase this is done 
+            way to initialize via the base class PWBase. 
+            (DO NOT SET CELL OR ATOM POSITIONS via PWBase this is done 
             automagically via ASE Atoms)
 
         AUTOMATICALLY SET KEYPAIRS:
@@ -66,7 +66,7 @@ class QE(QEBase, Calculator):
             or any of these previously mentioned. Be smart
         """
         Calculator.__init__(self, restart, ignore_bad_restart_file, label, atoms, **kwargs)
-        QEBase.__init__(self, {})
+        PWBase.__init__(self, {})
 
     def set(self, **kwargs):
         """Sets parameters list and determines if calculation needs to be reset
@@ -81,7 +81,7 @@ class QE(QEBase, Calculator):
         self.atoms = atoms
 
     def initialize(self):
-        """Updates QEBase to reflect self.parameters and atoms to be ready for a run
+        """Updates PWBase to reflect self.parameters and atoms to be ready for a run
 
         """
         # Setup Unit Cell
@@ -172,7 +172,7 @@ class QE(QEBase, Calculator):
             else:
                 raise Exception("Unknown kpts format declared")
 
-        # Add all QEBase initializer keypairs [READ VALUES TO NOT SET]
+        # Add all PWBase initializer keypairs [READ VALUES TO NOT SET]
         if self.parameters.get('keypairs'):
             self.add_keypairs_to_namespace(self.parameters['keypairs'])
 

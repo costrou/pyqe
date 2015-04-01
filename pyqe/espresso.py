@@ -15,9 +15,9 @@ from pyqe.namelists import Control, System, Electrons, Ions, Cell
 from pyqe.io import read_out_file
 import sys
 
-class QEBase:
+class PWBase:
     """
-    Quantum Espresso Main Class
+    PW Quantum Espresso Main Class
 
     From this class you can:
      - initialize the input
