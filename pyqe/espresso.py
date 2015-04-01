@@ -15,7 +15,7 @@ from pyqe.namelists import Control, System, Electrons, Ions, Cell
 from pyqe.io import read_out_file
 import sys
 
-class QE:
+class QEBase:
     """
     Quantum Espresso Main Class
 
@@ -121,29 +121,22 @@ class QE:
         specified by 'outfile' in control namelist
         """
         from subprocess import Popen, PIPE
-
-        prefix = []
-        postfix = []
+        from pyqe import config
 
         if infile != "":
             self.to_file(infile)
 
-            pw_command = prefix + ["pw.x", '-i', infile] + postfix
+            pw_command = config.prefix + ["pw.x", '-i', infile] + config.postfix
             proc = Popen(pw_command, stdout=PIPE, stderr=PIPE)
             pw_output = proc.communicate()
         else:
             pw_input = self.to_string()
 
-            pw_command = prefix + ["pw.x"] + postfix
+            pw_command = config.prefix + ["pw.x"] + config.postfix
             proc = Popen(pw_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
             pw_output = proc.communicate(pw_input.encode())
 
         proc.wait()
-        if proc.returncode != 0:
-            with open("CRASH", "r") as f:
-                print("Quantum Espresso CRASH FILE:\n{0}".format(f.read()),
-                       file=sys.stderr)
-            raise Exception("pw.x CRASHED")
                 
         pw_out = pw_output[0].decode()
         pw_err = pw_output[1].decode()
@@ -155,6 +148,12 @@ class QE:
         if errfile != "":
             with open(errfile, "w") as f:
                 f.write(pw_err)
+
+        if proc.returncode != 0:
+            with open("CRASH", "r") as f:
+                print("Quantum Espresso CRASH FILE:\n{0}".format(f.read()),
+                       file=sys.stderr)
+            raise Exception("pw.x CRASHED")
 
         return read_out_file(pw_out)
 

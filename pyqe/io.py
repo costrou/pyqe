@@ -48,11 +48,33 @@ def read_out_file(output_str):
     This functions takes the output file and breaks it into
     chunks for easier parsing.
     """
-    scf_block_regex = re.compile(
-        "Self-consistent Calculation"
-        ".+?"
-        "convergence has been achieved in\s+\d+ iterations",
-        re.DOTALL)
+
+    # Determine if a force/stress/or normal calculation was done
+    if re.search("entering subroutine stress \.\.\.", output_str):
+        scf_block_regex = re.compile(
+            (
+                "Self-consistent Calculation"
+                ".+?"
+                "total   stress  \(Ry/bohr\*\*3\)\s+\(kbar\)\s+P=\s+{0}\s+"
+                "\s+{0}\s+{0}\s+{0}\s+{0}\s+{0}\s+{0}\s+"
+                "\s+{0}\s+{0}\s+{0}\s+{0}\s+{0}\s+{0}\s+"
+                "\s+{0}\s+{0}\s+{0}\s+{0}\s+{0}\s+{0}\s+"
+            ).format(double_regex),
+            re.DOTALL)
+    elif re.search("Forces acting on atoms \(Ry/au\):", output_str): 
+        scf_block_regex = re.compile(
+            (
+                "Self-consistent Calculation"
+                ".+?"
+                "Total force =\s+{0}\s+Total SCF correction =\s+{0}"
+            ).format(double_regex),
+            re.DOTALL)
+    else:
+        scf_block_regex = re.compile(
+            r"Self-consistent Calculation"
+            r".+?"
+            r"convergence has been achieved in\s+\d+ iterations",
+            re.DOTALL)
 
     bfgs_regex = re.compile(
         "BFGS Geometry Optimization"
@@ -82,7 +104,7 @@ def read_out_file(output_str):
     else:
         bfgs_steps = [""]
 
-    calc_steps = [_ for _ in zip(scf_steps, bfgs_steps)]
+    calc_steps = [ _ for _ in zip(scf_steps, bfgs_steps)]
 
     footer_begin = output_str.find("init_run")
     footer_str = output_str[footer_begin:]
@@ -154,6 +176,17 @@ def read_out_header(header_str):
             else:
                 header.update({key: [_type(_) for _ in match.groups()]})
 
+    # Atom positions
+    atom_pos_regex = "({1})\s+([A-Z][a-z]?)\s+tau\(\s+({1})\s*\)\s+=\s+\(\s+({0})\s+({0})\s+({0})\s+\)"
+    matches = re.findall(
+        atom_pos_regex.format(double_regex, int_regex),
+        header_str)
+
+    atom_positions = []
+    for match in matches:
+        atom_positions.append([int(match[0]), match[1], [float(match[3]), float(match[4]), float(match[5])]])
+    header.update({"atom positions": atom_positions})
+
     # kpoints
     kpoint_regex = "k\(\s+({1})\)\s+=\s+\(\s+({0})\s+({0})\s+({0})\), wk = \s+({0})"
     matches = re.findall(
@@ -163,7 +196,7 @@ def read_out_header(header_str):
     kpoints = []
     for match in matches:
         kpoints.append([match[0], [match[1], match[2], match[3]], match[4]])
-        header.update({"kpoints": kpoints})
+    header.update({"kpoints": kpoints})
 
     return header
 
@@ -173,6 +206,14 @@ def read_out_calculation(bfgs_steps):
     Reads information about the calculation from the output file
     """
     total_energy_regex = r"!\s+total energy\s+=\s+({0}) Ry".format(double_regex)
+    force_regex = r"atom\s+({1})\s+type\s+({1})\s+force\s+=\s+({0})\s+({0})\s+({0})".format(double_regex, int_regex)
+    stress_regex = (
+        "total   stress  \(Ry/bohr\*\*3\)\s+\(kbar\)\s+P=\s+{0}\s+"
+        "\s+({0})\s+({0})\s+({0})\s+{0}\s+{0}\s+{0}\s+"
+        "\s+({0})\s+({0})\s+({0})\s+{0}\s+{0}\s+{0}\s+"
+        "\s+({0})\s+({0})\s+({0})\s+{0}\s+{0}\s+{0}\s+"
+    ).format(double_regex)
+
     volume_regex = r"new unit-cell volume\s=\s+({0}) a\.u\.\^3".format(double_regex)
     lattice_regex = (
         r"CELL_PARAMETERS.*"
@@ -186,9 +227,24 @@ def read_out_calculation(bfgs_steps):
     for scf_block, bgfs_block in bfgs_steps:
         iteration = {}
 
+        # SCF Block
         match = re.search(total_energy_regex, scf_block)
         iteration.update({"total energy": float(match.group(1))})
 
+        match = re.findall(force_regex, scf_block)
+        if match:
+            force = [[int(f[0]), int(f[1]), [float(f[2]), float(f[3]), float(f[4])]] for f in match]
+            iteration.update({'forces': force})
+
+        match = re.search(stress_regex, scf_block)
+        if match:
+            stress = [ float(_) for _ in match.groups(1)]
+            iteration.update({"stress": [stress[0:3],
+                                         stress[3:6],
+                                         stress[6:9]]})
+
+        # BFGS Block
+        print(bgfs_block)
         match = re.search(volume_regex, bgfs_block)
         if match:
             iteration.update({"volume": float(match.group(1))})

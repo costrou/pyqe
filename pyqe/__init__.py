@@ -1,1 +1,1 @@
-from pyqe.espresso import QE
+from pyqe.espresso import QEBase

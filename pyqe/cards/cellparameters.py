@@ -1,6 +1,8 @@
 """Card: Cell Parameters
 
 """
+QE_TAB="   "
+
 class CellParameters:
     """
     Card: CELL_PARAMETERS

@@ -264,7 +264,7 @@ class Namelist:
 
         """
         value = self.get_set_value(key, index)
-        if value:
+        if value != None:
             return value
         return self.get_default_value(key)
 
