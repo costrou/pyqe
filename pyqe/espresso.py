@@ -25,7 +25,7 @@ class PWBase:
      - run pw.x
     """
 
-    def __init__(self, qe_keypairs):
+    def __init__(self):
         self.control = Control()
         self.system = System()
         self.electrons = Electrons()
@@ -48,8 +48,6 @@ class PWBase:
             "ions": self.ions,
             "cell": self.cell
         }
-
-        self.add_keypairs_to_namespace(qe_keypairs)
 
     def add_keypairs_to_namespace(self, qe_keypairs):
         """
