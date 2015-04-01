@@ -174,7 +174,7 @@ class QE(PWBase, Calculator):
 
         # Add all PWBase initializer keypairs [READ VALUES TO NOT SET]
         if self.parameters.get('keypairs'):
-            self.add_keypairs_to_namespace(self.parameters['keypairs'])
+            self.add_keypairs_to_namelist(self.parameters['keypairs'])
 
         # Always calculate stress and strain
         self.control.add_keypairs({

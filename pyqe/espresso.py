@@ -49,7 +49,7 @@ class PWBase:
             "cell": self.cell
         }
 
-    def add_keypairs_to_namespace(self, qe_keypairs):
+    def add_keypairs_to_namelist(self, qe_keypairs):
         """
         Adds the respective keys to each namelist
         """
