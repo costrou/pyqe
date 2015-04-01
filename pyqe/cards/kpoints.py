@@ -1,8 +1,6 @@
 """Card: KPoints
 
 """
-QE_TAB = "   "
-
 class KPoints:
     """
     KPoint options (see function for description):
@@ -68,17 +66,19 @@ class KPoints:
             raise Exception(error_str)
 
     def __str__(self):
+        import pyqe.config as config
+
         kpoint_str = "{0} ({1})\n".format(self.name, self.option)
 
         if self.option == "automatic":
             # A little trick to convert list of int to delimited string
             grid_str = " ".join(map(str, self.config[0]))
             offset_str = " ".join(map(str, self.config[1]))
-            kpoint_str += QE_TAB + grid_str + " " + offset_str + "\n"
+            kpoint_str += config.card_space + grid_str + " " + offset_str + "\n"
         elif self.option in ["tpiba", "tpiba_b", "tpiba_c", "crystal", "crystal_b", "crystal_c"]:
-            kpoints_str += QE_TAB + "{0}\n".format(len(self.config))
+            kpoints_str += config.card_space + "{0}\n".format(len(self.config))
             for kpoint in self.config:
-                kpoints_str += QE_TAB + "{0} {1} {2} 1.0\n".format(kpoint[0], kpoint[1], kpoint[2])
+                kpoints_str += config.card_space + "{0} {1} {2} 1.0\n".format(kpoint[0], kpoint[1], kpoint[2])
         elif self.option == "gamma":
             # Do nothing for gamma point calculation
             pass

@@ -1,8 +1,6 @@
 """Card: Cell Parameters
 
 """
-QE_TAB="   "
-
 class CellParameters:
     """
     Card: CELL_PARAMETERS
@@ -55,13 +53,15 @@ class CellParameters:
             raise Exception(error_str)
 
     def __str__(self):
+        import pyqe.config as config
+
         cellparameter_str = "{0} ({1})\n".format(self.name, self.option)
         v1_str = " ".join(map(str, self.lattice_vec[0]))
-        cellparameter_str += QE_TAB + v1_str + "\n"
+        cellparameter_str += config.card_space + v1_str + "\n"
         v2_str = " ".join(map(str, self.lattice_vec[1]))
-        cellparameter_str += QE_TAB + v2_str + "\n"
+        cellparameter_str += config.card_space + v2_str + "\n"
         v3_str = " ".join(map(str, self.lattice_vec[2]))
-        cellparameter_str += QE_TAB + v3_str + "\n"
+        cellparameter_str += config.card_space + v3_str + "\n"
 
         return cellparameter_str
 
