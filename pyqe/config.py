@@ -1,3 +1,7 @@
+""" Module for definition of global configurations for pyqe 
+
+"""
+
 # Prefix to put before executing program
 prefix = []
 

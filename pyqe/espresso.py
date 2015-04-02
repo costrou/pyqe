@@ -1,27 +1,27 @@
 """
 An assistant to QE (Quantum Espresso) via python
-currently my aim is to support the fortran syntax
+currently my aim is to support the fortran syntax (not xml)
 
 See
 http://www.quantum-espresso.org/wp-content/uploads/Doc/pw_user_guide/node8.html
-for details on the input format to PW
+http://www.quantum-espresso.org/wp-content/uploads/Doc/INPUT_PW.html
+for details on the input format to pw.x
 
 '!#' - fortran comment characters
-
-
 """
+
 from pyqe.cards import AtomicSpecies, AtomicPositions, KPoints, CellParameters
 from pyqe.namelists import Control, System, Electrons, Ions, Cell
 from pyqe.io import read_out_file
-import sys
 
 class PWBase:
     """
-    PW Quantum Espresso Main Class
+    PW Quantum Espresso Base
 
     From this class you can:
      - initialize the input
      - create inputfile
+     - validate input
      - run pw.x
     """
 
@@ -50,8 +50,8 @@ class PWBase:
         }
 
     def add_keypairs_to_namelist(self, qe_keypairs):
-        """
-        Adds the respective keys to each namelist
+        """ Adds the respective keys to each namelist 
+
         """
         for name, keypairs in qe_keypairs.items():
             namelist = self.namelist_asoc.get(name.lower())
@@ -96,27 +96,28 @@ class PWBase:
         return qe_str
 
     def to_file(self, filename, input_format="fortran"):
+        """ Writes QE configuration to <filename> in format
+        specified. Currently only supports the Fortran style. 
+
         """
-        Writes QE configuration to <filename>
-        in format specified. Currently only supports
-        the Fortran style.
-        """
-        with open(filename, "w") as qefile:
-            qefile.write(self.to_string())
+        if input_format == "fortran":
+            with open(filename, "w") as qefile:
+                qefile.write(self.to_string())
+        else:
+            raise Exception("xml input specification not supported")
 
     def run(self, infile="", outfile="", errfile=""):
-        """
-        Runs QE pw.x.
+        """Runs QE pw.x.
 
         If stdin, stdout, stderr filenames are not defined
         no file is created for the given input or output.
 
-        If 'in_filename' is defined the program will run from the
+        If 'infile' is defined the program will run from the
         file rather than stdin via '-i'.
 
         Notice:
         QE will still create the save files in the directory
-        specified by 'outfile' in control namelist
+        specified by 'outfile' and 'errfile' in control namelist
         """
         from subprocess import Popen, PIPE
         from pyqe import config
@@ -149,18 +150,15 @@ class PWBase:
 
         if proc.returncode != 0:
             with open("CRASH", "r") as f:
-                print("Quantum Espresso CRASH FILE:\n{0}".format(f.read()),
-                       file=sys.stderr)
+                print("Quantum Espresso CRASH FILE:\n{0}".format(f.read()))
             raise Exception("pw.x CRASHED")
 
         return read_out_file(pw_out)
 
     def validate(self):
-        """
-        Each Namelist and Cards will validate its contents.
-        Sometimes they will need access to global information.
-        (not sure how to handle this yet)
-        """
+        """ Each Namelist and Card will validate its contents.
+        Sometimes they will need access to global information.  (not
+        sure how to handle this yet) """
         self.control.validate(self)
         self.system.validate(self)
         self.electrons.validate(self)

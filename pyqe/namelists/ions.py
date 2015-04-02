@@ -43,4 +43,4 @@ class Ions(Namelist):
             'w_1': [0, float, 0.01, None, None], #TODO Check only in bfgs calc
             'w_2': [0, float, 0.5, None, None] #TODO Check only in bfgs calc
         }
-        super().__init__(name, keys)
+        Namelist.__init__(self, name, keys)
