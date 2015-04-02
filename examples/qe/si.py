@@ -1,4 +1,4 @@
-from pyqe import PWBase
+from pyqe.espresso import PWBase
 
 #Data Setup
 qe_namelist = {
