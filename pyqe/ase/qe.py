@@ -1,8 +1,16 @@
+"""
+ASE Calculator for Quantum Espresso
+
+ - potential_energy
+ - force
+ - stress
+"""
+
 from ase.calculators.calculator import Calculator, all_changes, all_properties
 from pyqe.espresso import PWBase
 import numpy as np
 
-class QE(PWBase, Calculator):
+class QE(Calculator):
     """Quantum Espresso ASE Calculator
     
     """
@@ -66,7 +74,7 @@ class QE(PWBase, Calculator):
             or any of these previously mentioned. Be smart
         """
         Calculator.__init__(self, restart, ignore_bad_restart_file, label, atoms, **kwargs)
-        PWBase.__init__(self, {})
+        self._pw = None
 
     def set(self, **kwargs):
         """Sets parameters list and determines if calculation needs to be reset
@@ -78,71 +86,73 @@ class QE(PWBase, Calculator):
             self.reset()
 
     def set_atoms(self, atoms):
-        self.atoms = atoms
+        self.atoms = atoms.copy()
 
     def initialize(self):
         """Updates PWBase to reflect self.parameters and atoms to be ready for a run
 
         """
+        self._pw = PWBase()
+
         # Setup Unit Cell
         cell = self.atoms.cell
-        self.system.add_keypair(('ibrav', 0))
-        self.cell_parameters.add_lattice_vec(cell[0], cell[1], cell[2], option='angstrom')
+        self._pw.system.add_keypair(('ibrav', 0))
+        self._pw.cell_parameters.add_lattice_vec(cell[0], cell[1], cell[2], option='angstrom')
 
         # Setup Atom Positions
-        self.system.add_keypair(('nat', len(self.atoms)))
+        self._pw.system.add_keypair(('nat', len(self.atoms)))
         for atom in self.atoms:
-            self.atomic_positions.add_atom_position(atom.symbol, atom.position, option='angstrom')
+            self._pw.atomic_positions.add_atom_position(atom.symbol, atom.position, option='angstrom')
         
         # Setup Atom Psuedo Potentials
         from itertools import groupby
         for symbol, atoms in groupby(self.atoms, lambda atom: atom.symbol):
             pseudo_file = self.parameters['pseudo'].get(symbol)
             if pseudo_file:
-                self.atomic_species.add_atom_type(symbol, list(atoms)[0].mass, pseudo_file)
+                self._pw.atomic_species.add_atom_type(symbol, list(atoms)[0].mass, pseudo_file)
             else:
                 error_str = "Must provide pseudo potential for all atom types {0}"
                 raise Exception(error_str.format(symbol))
-        self.system.add_keypair(('ntyp', len(self.atomic_species.atoms)))
+        self._pw.system.add_keypair(('ntyp', len(self._pw.atomic_species.atoms)))
 
         
         # Set User Input Parameters [easy ones first, hard last]
         if self.parameters.get('calculation'):
-            self.control.add_keypair(('calculation', self.parameters.get('calculation')))
+            self._pw.control.add_keypair(('calculation', self.parameters.get('calculation')))
 
         if self.parameters.get('ecutwfc'):
-            self.system.add_keypair(('ecutwfc', self.parameters['ecutwfc']))
+            self._pw.system.add_keypair(('ecutwfc', self.parameters['ecutwfc']))
 
         if self.parameters.get('nbands'):
-            self.system.add_keypair(('nbnd', self.parameters['nbands']))
+            self._pw.system.add_keypair(('nbnd', self.parameters['nbands']))
 
         if self.parameters.get('usesymm'):
-            self.system.add_keypair(('nosym', not self.parameters['usesymm']))
+            self._pw.system.add_keypair(('nosym', not self.parameters['usesymm']))
 
         if self.parameters.get('maxiter'):
-            self.electrons.add_keypair(('electron_maxstep', self.parameters['maxiter']))
+            self._pw.electrons.add_keypair(('electron_maxstep', self.parameters['maxiter']))
 
         if self.parameters.get('prefix'):
-            self.control.add_keypair(('prefix', self.parameters['prefix']))
+            self._pw.control.add_keypair(('prefix', self.parameters['prefix']))
 
         if self.parameters.get('outdir'):
-            self.control.add_keypair(('outdir', self.parameters['outdir']))
+            self._pw.control.add_keypair(('outdir', self.parameters['outdir']))
 
         if self.parameters.get('pseudo_dir'):
-            self.control.add_keypair(('pseudo_dir', self.parameters['pseudo_dir']))
+            self._pw.control.add_keypair(('pseudo_dir', self.parameters['pseudo_dir']))
 
         if self.parameters.get('occupations'):
-            self.system.add_keypair(('occupations', self.parameters['occupations']))
+            self._pw.system.add_keypair(('occupations', self.parameters['occupations']))
 
         if self.parameters.get('input_dft'):
-            self.system.add_keypair(('input_dft', self.parameters['input_dft']))
+            self._pw.system.add_keypair(('input_dft', self.parameters['input_dft']))
 
         if self.parameters.get('fft_mesh'):
             fft_mesh = self.parameters['fft_mesh']
             if len(fft_mesh) == 3 and isinstance(fft_mesh[0], int):
-                self.system.add_keypairs({'nr1': fft_mesh[0],
-                                          'nr2': fft_mesh[1],
-                                          'nr3': fft_mesh[2]})
+                self._pw.system.add_keypairs({'nr1': fft_mesh[0],
+                                               'nr2': fft_mesh[1],
+                                               'nr3': fft_mesh[2]})
             else:
                 error_str = 'FFT MESH = [nr1, nr2, nr3] each is integer'
                 raise Exception(error_str)
@@ -151,7 +161,7 @@ class QE(PWBase, Calculator):
             conv = self.parameters['convergence']
             if isinstance(conv, dict):
                 if conv.get('energy'):
-                    self.electrons.add_keypair(('conv_thr', conv['energy']))
+                    self._pw.electrons.add_keypair(('conv_thr', conv['energy']))
                 else:
                     raise Exception('Only energy convergence implemented currently')
             else:
@@ -162,26 +172,26 @@ class QE(PWBase, Calculator):
             if isinstance(kpts, dict):
                 if kpts.get('density'):
                     from ase.calculator.calculator import kptdensity2monkhorstpack
-                    self.k_points.from_list(kptdensity2monkhorstpack(
+                    self._pw.k_points.from_list(kptdensity2monkhorstpack(
                         kpts['density'], kpts.get('even', False)))
                 elif kpts.get('size'):
-                    self.k_points.from_monkhorst_pack(
+                    self._pw.k_points.from_monkhorst_pack(
                         kpts['size'], kpts.get('offset', [0, 0, 0]))
             elif isinstance(kpts, list):
-                self.k_points.from_list(kpts)
+                self._pw.k_points.from_list(kpts)
             else:
                 raise Exception("Unknown kpts format declared")
 
         # Add all PWBase initializer keypairs [READ VALUES TO NOT SET]
         if self.parameters.get('keypairs'):
-            self.add_keypairs_to_namelist(self.parameters['keypairs'])
+            self._pw.add_keypairs_to_namelist(self.parameters['keypairs'])
 
         # Always calculate stress and strain
-        self.control.add_keypairs({
+        self._pw.control.add_keypairs({
             'tstress': True,
             'tprnfor': True})
 
-        self.validate()
+        self._pw.validate()
 
 
     def calculate(self, atoms=None, properties=['energy'], system_changes=all_changes):
@@ -189,8 +199,12 @@ class QE(PWBase, Calculator):
 
         """
         if system_changes or not self.results:
+            if atoms:
+                self.set_atoms(atoms)
+
             self.initialize()
-            results = self.run(infile="in", outfile="out", errfile="err")
+
+            results = self._pw.run(infile="in", outfile="out", errfile="err")
             
             # Extract Results and convert to appropriate units
             from ase.units import Bohr, Ry
