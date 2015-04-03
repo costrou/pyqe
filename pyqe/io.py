@@ -1,5 +1,5 @@
 """ 
-A module for reading the output and inputs to Quantum Espresso
+A module for reading the output and input to Quantum Espresso
 
 read_out_file - reads stdout from pw.x 
 read_data_file - reads save file specified in `outfile` from pw.x
@@ -227,7 +227,7 @@ def read_out_calculation(bfgs_steps):
     total_energy_regex = r"!\s+total energy\s+=\s+({0}) Ry".format(double_regex)
     force_regex = r"atom\s+({1})\s+type\s+({1})\s+force\s+=\s+({0})\s+({0})\s+({0})".format(double_regex, int_regex)
     stress_regex = (
-        "total   stress  \(Ry/bohr\*\*3\)\s+\(kbar\)\s+P=\s+{0}\s+"
+        "total\s+stress\s+\(Ry/bohr\*\*3\)\s+\(kbar\)\s+P=\s*{0}\s+"
         "\s+({0})\s+({0})\s+({0})\s+{0}\s+{0}\s+{0}\s+"
         "\s+({0})\s+({0})\s+({0})\s+{0}\s+{0}\s+{0}\s+"
         "\s+({0})\s+({0})\s+({0})\s+{0}\s+{0}\s+{0}\s+"
