@@ -59,6 +59,8 @@ class QE(Calculator):
             way to initialize via the base class PWBase. 
             (DO NOT SET CELL OR ATOM POSITIONS via PWBase this is done 
             automagically via ASE Atoms)
+        debug:
+            if True will print input and output QE files
 
         AUTOMATICALLY SET KEYPAIRS:
         Set so we can always extract stress and forces:
@@ -204,14 +206,19 @@ class QE(Calculator):
 
             self.initialize()
 
-            results = self._pw.run(infile="in", outfile="out", errfile="err")
-            
+            # Run pw.x
+            if self.parameters.get('debug'):
+                results = self._pw.run(infile="in", outfile="out", errfile="err")
+            else:
+                results = self._pw.run()
+
             # Extract Results and convert to appropriate units
             from ase.units import Bohr, Ry
 
             energy = results['calculation']['total energy'] / Ry
 
             forces = np.array([_[2] for _ in results['calculation']['forces']]) * Bohr/Ry
+
             
             stress = np.array(results['calculation']['stress']) * Bohr**3/Ry
             # xx, yy, zz, yz, xz, xy

@@ -120,8 +120,10 @@ class PWBase:
         specified by 'outfile' and 'errfile' in control namelist
         """
         from subprocess import Popen, PIPE
+        from time import time
         from pyqe import config
 
+        start_time = time()
         if infile != "":
             self.to_file(infile)
 
@@ -136,6 +138,7 @@ class PWBase:
             pw_output = proc.communicate(pw_input.encode())
 
         proc.wait()
+        end_time = time()
                 
         pw_out = pw_output[0].decode()
         pw_err = pw_output[1].decode()
@@ -153,7 +156,12 @@ class PWBase:
                 print("Quantum Espresso CRASH FILE:\n{0}".format(f.read()))
             raise Exception("pw.x CRASHED")
 
-        return read_out_file(pw_out)
+        results = read_out_file(pw_out)
+
+        # Add run related info
+        results.update({'time': end_time - start_time})
+
+        return results
 
     def validate(self):
         """ Each Namelist and Card will validate its contents.
