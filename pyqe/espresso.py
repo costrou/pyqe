@@ -158,6 +158,15 @@ class PWBase:
 
         results = read_out_file(pw_out)
 
+        # Read save file output
+        prefix = self.control.get_current_value("prefix")
+        outdir = self.control.get_current_value("outdir")
+        if outdir[-1] == '/':
+            data_file = outdir + prefix + '.save/data-file.xml'
+        else:
+            data_file = outdir + '/' + prefix + '.save/data-file.xml'
+        results.update({"data-file": read_data_file(data_file)})
+
         # Add run related info
         results.update({'time': end_time - start_time})
 

@@ -27,7 +27,7 @@ def qe_xml_tag_value(tag):
     size = int(tag.attrib.get("size", 1))
     col = int(tag.attrib.get("columns", 1))
 
-    if _type == "char":
+    if _type == "character":
         value =  tag.text
     elif _type == "real":
         value = np.array(
@@ -43,6 +43,11 @@ def qe_xml_tag_value(tag):
             value = value[0]
         else:
             value.shape = [size / col, col]
+    elif _type == "logical":
+        if 'F' in tag.text:
+            value = False
+        else:
+            value = True
     else:
         error_str = "Type {0} qe xml conversion not supported"
         raise Exception(error_str.format(_type))
@@ -302,10 +307,10 @@ def read_data_file(inputfile):
     Not Implemeneted:
     HEADER, CONTROL, IONS, SYMMETRIES, ELECTRIC-FIELD, PLANE-WAVES
     SPIN, MAGNETIZATION-INIT, OCCUPATIONS, BRILLOUIN-ZONE, PARRALLELISM, 
-    BAND-STRUCTURE-INFO, EIGENVECTORS
+    EIGENVECTORS
 
     Implemented:
-    CHARGE-DENSITY, EIGENVALUES, EXCHANGE-CORRELATION, 
+    CHARGE-DENSITY, EIGENVALUES, EXCHANGE-CORRELATION, BAND-STRUCTURE-INFO
     """
     tree = ET.parse(inputfile)
     root = tree.getroot()
@@ -326,7 +331,7 @@ def read_data_file(inputfile):
 
     # TAG: EXCHANGE-CORRELATION
     exchange_tag = root.find("EXCHANGE_CORRELATION")
-    data.update({'exchange-correlation': qe_xml_tag_value(exchange_tag.find("DFT"))})
+    data.update({"exchange-correlation": re.search("[A-Z\-]+", qe_xml_tag_value(exchange_tag.find("DFT"))).group()})
 
     # TAG: CHARGE-DENSITY
     charge_density_file = root.find("CHARGE-DENSITY").attrib.get("iotk_link")

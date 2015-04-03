@@ -212,11 +212,10 @@ class QE(Calculator):
             else:
                 results = self._pw.run()
 
-            # Extract Results and convert to appropriate units
-            from ase.units import Bohr, Ry
+            # Extract Results from outfile and convert to appropriate units
+            from ase.units import Bohr, Ry, Hartree
 
             energy = results['calculation']['total energy'] * Ry
-
             forces = np.array([_[2] for _ in results['calculation']['forces']]) * Ry / Bohr
 
             
@@ -224,9 +223,16 @@ class QE(Calculator):
             # xx, yy, zz, yz, xz, xy
             stress = np.array([stress[0, 0], stress[1, 1], stress[2, 2],
                                stress[1, 2], stress[0, 2], stress[0, 1]])
+            fermi_energy = results['data-file']['band-structure-info']['fermi energy'] * Hartree
 
             self.results = {'energy': energy,
                             'forces': forces,
-                            'stress': stress}
+                            'stress': stress,
+                            'fermi-energy': fermi_energy,
+                            'xc-functional': results['data-file']['exchange-correlation'],
+                            'nbands': results['data-file']['band-structure-info']['number of bands'],
+                            'charge-density': results['data-file']['charge-density'],
+                            'ibz-kpoints': results['data-file']['eigenvalues']}
+
 
         return self.results[properties[0]]
