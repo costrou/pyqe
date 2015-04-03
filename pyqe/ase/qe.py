@@ -215,12 +215,12 @@ class QE(Calculator):
             # Extract Results and convert to appropriate units
             from ase.units import Bohr, Ry
 
-            energy = results['calculation']['total energy'] / Ry
+            energy = results['calculation']['total energy'] * Ry
 
-            forces = np.array([_[2] for _ in results['calculation']['forces']]) * Bohr/Ry
+            forces = np.array([_[2] for _ in results['calculation']['forces']]) * Ry / Bohr
 
             
-            stress = np.array(results['calculation']['stress']) * Bohr**3/Ry
+            stress = np.array(results['calculation']['stress']) * Ry / (Bohr**3)
             # xx, yy, zz, yz, xz, xy
             stress = np.array([stress[0, 0], stress[1, 1], stress[2, 2],
                                stress[1, 2], stress[0, 2], stress[0, 1]])
