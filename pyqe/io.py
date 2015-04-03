@@ -298,19 +298,35 @@ def read_data_file(inputfile):
 
     *Not all values are read in because I have not needed them.*
 
-    Main tags:
+    TAGS:
+    Not Implemeneted:
     HEADER, CONTROL, IONS, SYMMETRIES, ELECTRIC-FIELD, PLANE-WAVES
-    SPIN, MAGNETIZATION-INIT, EXCHANGE-CORRELATION, OCCUPATIONS,
-    BRILLOUIN-ZONE, PARRALLELISM, CHARGE-DENSITY, BAND-STRUCTURE-INFO,
-    EIGENVALUES, EIGENVECTORS
+    SPIN, MAGNETIZATION-INIT, OCCUPATIONS, BRILLOUIN-ZONE, PARRALLELISM, 
+    BAND-STRUCTURE-INFO, EIGENVECTORS
 
-    Currently Implemented:
-    CHARGE-DENSITY, EIGENVALUES
+    Implemented:
+    CHARGE-DENSITY, EIGENVALUES, EXCHANGE-CORRELATION, 
     """
     tree = ET.parse(inputfile)
     root = tree.getroot()
 
     data = {}
+
+    # TAG: BAND-STRUCTURE-INFO
+    bs_tag = root.find("BAND_STRUCTURE_INFO")
+    data.update({'band-structure-info': {
+        "number of kpoints": qe_xml_tag_value(bs_tag.find("NUMBER_OF_K-POINTS")),
+        "number of spin components": qe_xml_tag_value(bs_tag.find("NUMBER_OF_SPIN_COMPONENTS")),
+        "non-colinear calculation": qe_xml_tag_value(bs_tag.find("NON-COLINEAR_CALCULATION")),
+        "number of atomic wfc": qe_xml_tag_value(bs_tag.find("NUMBER_OF_ATOMIC_WFC")),
+        "number of bands": qe_xml_tag_value(bs_tag.find("NUMBER_OF_BANDS")),
+        "number of electrons": qe_xml_tag_value(bs_tag.find("NUMBER_OF_ELECTRONS")),
+        "fermi energy": qe_xml_tag_value(bs_tag.find("FERMI_ENERGY"))
+    }})
+
+    # TAG: EXCHANGE-CORRELATION
+    exchange_tag = root.find("EXCHANGE_CORRELATION")
+    data.update({'exchange-correlation': qe_xml_tag_value(exchange_tag.find("DFT"))})
 
     # TAG: CHARGE-DENSITY
     charge_density_file = root.find("CHARGE-DENSITY").attrib.get("iotk_link")
