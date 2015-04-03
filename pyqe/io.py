@@ -65,7 +65,7 @@ def read_out_file(output_str):
             (
                 "Self-consistent Calculation"
                 ".+?"
-                "total   stress  \(Ry/bohr\*\*3\)\s+\(kbar\)\s+P=\s+{0}\s+"
+                "total\s+stress\s+\(Ry/bohr\*\*3\)\s+\(kbar\)\s+P=\s*{0}\s+"
                 "\s+{0}\s+{0}\s+{0}\s+{0}\s+{0}\s+{0}\s+"
                 "\s+{0}\s+{0}\s+{0}\s+{0}\s+{0}\s+{0}\s+"
                 "\s+{0}\s+{0}\s+{0}\s+{0}\s+{0}\s+{0}\s+"
