@@ -6,15 +6,38 @@ ASE Calculator for Quantum Espresso
  - stress
 """
 
-from ase.calculators.calculator import Calculator, all_changes, all_properties
+from ase.calculators.calculator import Calculator
 from pyqe.espresso import PWBase
 import numpy as np
+
+
+def calculation(property_name):
+    def calculation_decorator(property_function):
+        def calculation_wrapper(self, atoms=None, *args, **kwargs):
+            if property_name not in self.implemented_properties:
+                raise NotImplementedError(property_name)
+
+            if self._calculation_required(atoms, property_name):
+                if atoms is not None:
+                    self.set_atoms(atoms)
+
+                self._initialize()
+
+                results = self._calculate(property_name)
+                self._set_results(results)
+
+            return property_function(self, atoms, *args, **kwargs)
+        return calculation_wrapper
+    return calculation_decorator
+
 
 class QE(Calculator):
     """Quantum Espresso ASE Calculator
     
     """
-    implemented_properties = ['energy', 'forces', 'stress']
+    implemented_properties = ['energy', 'forces', 'stress', 
+                              'ibz_kpoint_eigenvalues', 'ibz_kpoints_position', 'ibz_kpoints_weight', 
+                              'nbands', 'xc_functional', 'fermi_energy']
 
     default_parameters = {
         'calculation': 'scf',
@@ -90,7 +113,7 @@ class QE(Calculator):
     def set_atoms(self, atoms):
         self.atoms = atoms.copy()
 
-    def initialize(self):
+    def _initialize(self):
         """Updates PWBase to reflect self.parameters and atoms to be ready for a run
 
         """
@@ -195,44 +218,89 @@ class QE(Calculator):
 
         self._pw.validate()
 
-
-    def calculate(self, atoms=None, properties=['energy'], system_changes=all_changes):
-        """Determines if a calculation needs to be preformed
+    def _calculate(self, property_name):
+        """Preforms calculation.
 
         """
-        if system_changes or not self.results:
-            if atoms:
-                self.set_atoms(atoms)
+        if self.parameters.get('debug'):
+            return self._pw.run(infile="in", outfile="out", errfile="err")
+        return self._pw.run()
 
-            self.initialize()
+    def _calculation_required(self, atoms, property_name):
+        # TODO need to do better check on results
+        if not self.results:
+            return True
 
-            # Run pw.x
-            if self.parameters.get('debug'):
-                results = self._pw.run(infile="in", outfile="out", errfile="err")
-            else:
-                results = self._pw.run()
+        if atoms is not None:
+            system_changes = self.check_state(atoms)
+            if system_changes:
+                return True
+        
+        return False
 
-            # Extract Results from outfile and convert to appropriate units
-            from ase.units import Bohr, Ry, Hartree
+    def _set_results(self, results):
+        # Extract Results from outfile and convert to appropriate units
+        from ase.units import Bohr, Ry, Hartree
 
-            energy = results['calculation']['total energy'] * Ry
-            forces = np.array([_[2] for _ in results['calculation']['forces']]) * Ry / Bohr
-
+        energy = results['calculation']['total energy'] * Ry
+        forces = np.array([_[2] for _ in results['calculation']['forces']]) * Ry / Bohr
             
-            stress = np.array(results['calculation']['stress']) * Ry / (Bohr**3)
-            # xx, yy, zz, yz, xz, xy
-            stress = np.array([stress[0, 0], stress[1, 1], stress[2, 2],
+        stress = np.array(results['calculation']['stress']) * Ry / (Bohr**3)
+        # xx, yy, zz, yz, xz, xy
+        stress = np.array([stress[0, 0], stress[1, 1], stress[2, 2],
                                stress[1, 2], stress[0, 2], stress[0, 1]])
-            fermi_energy = results['data-file']['band-structure-info']['fermi energy'] * Hartree
+        fermi_energy = results['data-file']['band-structure-info']['fermi-energy'] * Hartree
 
-            self.results = {'energy': energy,
-                            'forces': forces,
-                            'stress': stress,
-                            'fermi-energy': fermi_energy,
-                            'xc-functional': results['data-file']['exchange-correlation'],
-                            'nbands': results['data-file']['band-structure-info']['number of bands'],
-                            'charge-density': results['data-file']['charge-density'],
-                            'ibz-kpoints': results['data-file']['eigenvalues']}
+        self.results = {'energy': energy,
+                        'forces': forces,
+                        'stress': stress,
+                        'fermi-energy': fermi_energy,
+                        'xc-functional': results['data-file']['exchange-correlation'],
+                        'nbands': results['data-file']['band-structure-info']['number bands'],
+                        'charge-density': results['data-file']['charge-density'],
+                        'ibz-kpoints': results['data-file']['kpoints']}
 
+        
+    @calculation("energy")
+    def get_potential_energy(self, atoms=None):
+        return self.results['energy']
 
-        return self.results[properties[0]]
+    @calculation("forces")
+    def get_forces(self, atoms=None):
+        return self.results['forces']
+
+    @calculation("stress")
+    def get_stress(self, atoms=None):
+        return self.results['stress']
+
+    @calculation("ibz_kpoint_eigenvalues")
+    def get_eigenvalues(self, atoms=None, kpt=0, spin=0):
+        if spin == 1:
+            raise Exception("Spin systems not implemented yet!")
+        return self.results['ibz-kpoints'][kpt]['eigenvalues']
+
+    @calculation("ibz_kpoints_position")
+    def get_ibz_kpoints(self, atoms=None):
+        return np.array([kpoint['coordinate'] for kpoint in self.results['ibz_kpoints']])
+
+    @calculation("ibz_kpoints_weight")
+    def get_k_point_weights(self, atoms=None):
+        return np.array([kpoint['weight'] for kpoint in self.results['ibz_kpoints']])
+    
+    @calculation("nbands")
+    def get_number_of_bands(self, atoms=None):
+        return self.results['nbands']
+
+    @calculation("xc_functional")
+    def get_xc_functional(self, atoms=None):
+        return self.results['xc_functional']
+
+    @calculation("fermi_energy")
+    def get_fermi_energy(self, atoms=None):
+        return self.results['fermi-energy']
+    
+    @calculation("pseudo_density")
+    def get_pseudo_density(self, atoms=None, spin=None, pad=True):
+        if spin != None:
+            raise Exception("Spin systems not implemented yet!")
+        return self.results['charge-density']

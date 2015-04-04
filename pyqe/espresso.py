@@ -12,7 +12,7 @@ for details on the input format to pw.x
 
 from pyqe.cards import AtomicSpecies, AtomicPositions, KPoints, CellParameters
 from pyqe.namelists import Control, System, Electrons, Ions, Cell
-from pyqe.io import read_out_file
+
 
 class PWBase:
     """
@@ -156,6 +156,7 @@ class PWBase:
                 print("Quantum Espresso CRASH FILE:\n{0}".format(f.read()))
             raise Exception("pw.x CRASHED")
 
+        from pyqe.io import read_out_file, read_data_file
         results = read_out_file(pw_out)
 
         # Read save file output

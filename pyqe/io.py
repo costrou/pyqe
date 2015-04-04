@@ -320,13 +320,13 @@ def read_data_file(inputfile):
     # TAG: BAND-STRUCTURE-INFO
     bs_tag = root.find("BAND_STRUCTURE_INFO")
     data.update({'band-structure-info': {
-        "number of kpoints": qe_xml_tag_value(bs_tag.find("NUMBER_OF_K-POINTS")),
-        "number of spin components": qe_xml_tag_value(bs_tag.find("NUMBER_OF_SPIN_COMPONENTS")),
+        "number kpoints": qe_xml_tag_value(bs_tag.find("NUMBER_OF_K-POINTS")),
+        "number spin-components": qe_xml_tag_value(bs_tag.find("NUMBER_OF_SPIN_COMPONENTS")),
         "non-colinear calculation": qe_xml_tag_value(bs_tag.find("NON-COLINEAR_CALCULATION")),
-        "number of atomic wfc": qe_xml_tag_value(bs_tag.find("NUMBER_OF_ATOMIC_WFC")),
-        "number of bands": qe_xml_tag_value(bs_tag.find("NUMBER_OF_BANDS")),
-        "number of electrons": qe_xml_tag_value(bs_tag.find("NUMBER_OF_ELECTRONS")),
-        "fermi energy": qe_xml_tag_value(bs_tag.find("FERMI_ENERGY"))
+        "number atomic wfc": qe_xml_tag_value(bs_tag.find("NUMBER_OF_ATOMIC_WFC")),
+        "number bands": qe_xml_tag_value(bs_tag.find("NUMBER_OF_BANDS")),
+        "number electrons": qe_xml_tag_value(bs_tag.find("NUMBER_OF_ELECTRONS")),
+        "fermi-energy": qe_xml_tag_value(bs_tag.find("FERMI_ENERGY"))
     }})
 
     # TAG: EXCHANGE-CORRELATION
@@ -336,23 +336,23 @@ def read_data_file(inputfile):
     # TAG: CHARGE-DENSITY
     charge_density_file = root.find("CHARGE-DENSITY").attrib.get("iotk_link")
     data.update({"charge-density": read_charge_density_file(
-            os.path.dirname(inputfile) + charge_density_file)})
+            os.path.dirname(inputfile) + '/' + charge_density_file)})
 
-    # TAG: EIGENVALUES
+    # TAG: EIGENVALUES (Really K-Point information)
     eigenvalues_tag = root.find("EIGENVALUES")
-    eigenvalues = []
+    kpoints = []
     for eigenvalue_tag in eigenvalues_tag:
-        eigenvalue = {
-            "coord": qe_xml_tag_value(eigenvalue_tag.find("K-POINT_COORDS")),
+        kpoint = {
+            "coordinates": qe_xml_tag_value(eigenvalue_tag.find("K-POINT_COORDS")),
             "weight": qe_xml_tag_value(eigenvalue_tag.find("WEIGHT")),
         }
 
         eigenvalue_file = eigenvalue_tag.find("DATAFILE").attrib.get("iotk_link")
-        eigenvalue.update(read_eigenvalue_file(
-            os.path.dirname(inputfile) + eigenvalue_file))
+        kpoint.update(read_eigenvalue_file(
+            os.path.dirname(inputfile) + '/' + eigenvalue_file))
 
-        eigenvalues.append(eigenvalue)
-    data.update({"eigenvalues": eigenvalues})
+        kpoints.append(kpoint)
+    data.update({"kpoints": kpoints})
 
     return data
 
