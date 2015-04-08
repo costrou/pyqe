@@ -76,12 +76,7 @@ class PWBase:
 
         ## Cards
         qe_str += str(self.atomic_species)
-
-        # Only needed if calculations is not
-        # 'band' or 'nscf'
-        if self.control.get_current_value("calculation") not in ["nscf", "bands"]:
-            qe_str += str(self.atomic_positions)
-
+        qe_str += str(self.atomic_positions)
         qe_str += str(self.k_points)
 
         # Only needed if unitcell is not defined

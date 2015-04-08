@@ -50,7 +50,7 @@ class KPoints:
         in units of 2 pi/a (default)
         """
         # Validate Input
-        if not isinstance(kpoints, list):
+        if not hasattr(kpoints, "__iter__"):
             raise Exception("kpoints must be list of kpoints")
 
         self.option = "tpiba"
@@ -76,9 +76,9 @@ class KPoints:
             offset_str = " ".join(map(str, self.config[1]))
             kpoint_str += config.card_space + grid_str + " " + offset_str + "\n"
         elif self.option in ["tpiba", "tpiba_b", "tpiba_c", "crystal", "crystal_b", "crystal_c"]:
-            kpoints_str += config.card_space + "{0}\n".format(len(self.config))
+            kpoint_str += config.card_space + "{0}\n".format(len(self.config))
             for kpoint in self.config:
-                kpoints_str += config.card_space + "{0} {1} {2} 1.0\n".format(kpoint[0], kpoint[1], kpoint[2])
+                kpoint_str += config.card_space + "{0} {1} {2} 1.0\n".format(kpoint[0], kpoint[1], kpoint[2])
         elif self.option == "gamma":
             # Do nothing for gamma point calculation
             pass

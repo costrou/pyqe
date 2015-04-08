@@ -6,7 +6,7 @@ ASE Calculator for Quantum Espresso
  - stress
 """
 
-from ase.calculators.calculator import Calculator
+from ase.calculators.calculator import Calculator, equal
 from pyqe.espresso import PWBase
 import numpy as np
 
@@ -16,6 +16,9 @@ def calculation(property_name):
         def calculation_wrapper(self, atoms=None, *args, **kwargs):
             if property_name not in self.implemented_properties:
                 raise NotImplementedError(property_name)
+
+            if self.atoms is None and atoms is None:
+                raise Exception("Atoms object required for calculation")
 
             if self._calculation_required(atoms, property_name):
                 if atoms is not None:
@@ -37,7 +40,7 @@ class QE(Calculator):
     """
     implemented_properties = ['energy', 'forces', 'stress', 
                               'ibz_kpoint_eigenvalues', 'ibz_kpoints_position', 'ibz_kpoints_weight', 
-                              'nbands', 'xc_functional', 'fermi_energy']
+                              'nspins', 'nbands', 'xc_functional', 'fermi_energy', 'dos']
 
     default_parameters = {
         'calculation': 'scf',
@@ -106,9 +109,30 @@ class QE(Calculator):
 
         *for now it is reset if any parameters change*
         """
-        changed_parameters = Calculator.set(self, **kwargs)
+        # Read parameters from file
+        if 'parameters' in kwargs:
+            filename = kwargs.pop('parameters')
+            parameters = Parameters.read(filename)
+            parameters.update(kwargs)
+            kwargs = parameters
+
+        changed_parameters = {}
+
+        for key, value in kwargs.items():
+            oldvalue = self.parameters.get(key)
+            if key not in self.parameters or not equal(value, oldvalue):
+                changed_parameters[key] = value
+                self.parameters[key] = value
+
         if changed_parameters:
             self.reset()
+
+        return changed_parameters
+
+    def reset(self):
+        """Clear all information from old calculation."""
+        self.atoms = None
+        self.results = {}
 
     def set_atoms(self, atoms):
         self.atoms = atoms.copy()
@@ -192,8 +216,9 @@ class QE(Calculator):
             else:
                 raise Exception("Unknown convergence format declared (dict required)")
 
-        if self.parameters.get('kpts'):
+        if self.parameters.get('kpts') is not None:
             kpts = self.parameters['kpts']
+
             if isinstance(kpts, dict):
                 if kpts.get('density'):
                     from ase.calculator.calculator import kptdensity2monkhorstpack
@@ -202,7 +227,9 @@ class QE(Calculator):
                 elif kpts.get('size'):
                     self._pw.k_points.from_monkhorst_pack(
                         kpts['size'], kpts.get('offset', [0, 0, 0]))
-            elif isinstance(kpts, list):
+                else:
+                    raise Exception("Unknown kpts format declared")
+            elif hasattr(kpts, "__iter__"):
                 self._pw.k_points.from_list(kpts)
             else:
                 raise Exception("Unknown kpts format declared")
@@ -227,11 +254,11 @@ class QE(Calculator):
         return self._pw.run()
 
     def _calculation_required(self, atoms, property_name):
-        # TODO need to do better check on results
-        if not self.results:
+        # TODO need to do better check on results (using cached idea)
+        if self.results == {}:
             return True
 
-        if atoms is not None:
+        if self.atoms and atoms:
             system_changes = self.check_state(atoms)
             if system_changes:
                 return True
@@ -251,11 +278,15 @@ class QE(Calculator):
                                stress[1, 2], stress[0, 2], stress[0, 1]])
         fermi_energy = results['data-file']['band-structure-info']['fermi-energy'] * Hartree
 
+        for kpt in results['data-file']['kpoints']:
+            kpt['eigenvalues'] = np.array(kpt['eigenvalues']) * Hartree
+
         self.results = {'energy': energy,
                         'forces': forces,
                         'stress': stress,
                         'fermi-energy': fermi_energy,
                         'xc-functional': results['data-file']['exchange-correlation'],
+                        'nspins': results['data-file']['band-structure-info']['number spin-components'],
                         'nbands': results['data-file']['band-structure-info']['number bands'],
                         'charge-density': results['data-file']['charge-density'],
                         'ibz-kpoints': results['data-file']['kpoints']}
@@ -280,12 +311,16 @@ class QE(Calculator):
         return self.results['ibz-kpoints'][kpt]['eigenvalues']
 
     @calculation("ibz_kpoints_position")
-    def get_ibz_kpoints(self, atoms=None):
-        return np.array([kpoint['coordinate'] for kpoint in self.results['ibz_kpoints']])
+    def get_ibz_k_points(self, atoms=None):
+        return np.array([kpoint['coordinate'] for kpoint in self.results['ibz-kpoints']])
 
     @calculation("ibz_kpoints_weight")
     def get_k_point_weights(self, atoms=None):
-        return np.array([kpoint['weight'] for kpoint in self.results['ibz_kpoints']])
+        return np.array([kpoint['weight'] for kpoint in self.results['ibz-kpoints']])
+
+    @calculation("nspins")
+    def get_number_of_spins(self, atoms=None):
+        return self.results['nspins']
     
     @calculation("nbands")
     def get_number_of_bands(self, atoms=None):
@@ -296,7 +331,7 @@ class QE(Calculator):
         return self.results['xc_functional']
 
     @calculation("fermi_energy")
-    def get_fermi_energy(self, atoms=None):
+    def get_fermi_level(self, atoms=None):
         return self.results['fermi-energy']
     
     @calculation("pseudo_density")
@@ -304,3 +339,10 @@ class QE(Calculator):
         if spin != None:
             raise Exception("Spin systems not implemented yet!")
         return self.results['charge-density']
+
+    @calculation("dos")
+    def get_dos(self, atoms=None, spin=None, width=0.1, npts=201):
+        from ase.dft import DOS
+        dos = DOS(self, width=width, npts=npts)
+        return dos.get_energies(), dos.get_dos(spin)
+        

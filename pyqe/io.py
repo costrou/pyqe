@@ -343,7 +343,7 @@ def read_data_file(inputfile):
     kpoints = []
     for eigenvalue_tag in eigenvalues_tag:
         kpoint = {
-            "coordinates": qe_xml_tag_value(eigenvalue_tag.find("K-POINT_COORDS")),
+            "coordinate": qe_xml_tag_value(eigenvalue_tag.find("K-POINT_COORDS")),
             "weight": qe_xml_tag_value(eigenvalue_tag.find("WEIGHT")),
         }
 
