@@ -1,0 +1,11 @@
+# Installation 
+Only works with python 3! Sorry python 2 users. Python
+3 was released in 2009 it is time to move foreward.
+
+I only work on a linux machine (maybe works on OSX and Windows)
+
+Install for all users (sudo = superuser command)
+`sudo python3 setup.py install`
+
+Install locally
+`python3 setup.py install --user`

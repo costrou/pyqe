@@ -211,8 +211,6 @@ class Namelist:
     keys is a dictionary of KeyInfo
     """
 
-    NAMELIST_SPACE = "    "
-
     def __init__(self, name, keys):
         self.name = name
         self.keypairs = defaultdict(dict)
@@ -264,7 +262,7 @@ class Namelist:
 
         """
         value = self.get_set_value(key, index)
-        if value:
+        if value != None:
             return value
         return self.get_default_value(key)
 
@@ -392,10 +390,11 @@ class Namelist:
         namelist_str = " &{0}\n".format(self.name)
 
         # Iterate through key value
+        import pyqe.config as config
         for key, values in self.keypairs.items():
             for index, value in values.items():
                 keypair = KeyPair(key, index, value)
-                namelist_str += self.NAMELIST_SPACE
+                namelist_str += config.namelist_space
                 namelist_str += keypair.to_string()
                 namelist_str += "\n"
         namelist_str += " /\n"

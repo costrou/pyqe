@@ -1,8 +1,6 @@
 """Card: KPoints
 
 """
-QE_TAB = "   "
-
 class KPoints:
     """
     KPoint options (see function for description):
@@ -26,7 +24,7 @@ class KPoints:
         self.option = None
         self.config = None
 
-    def automatic(self, grid, offset):
+    def from_monkhorst_pack(self, grid, offset):
         """
         Automatically generated uniform grid of k-points, i.e,
         generates ( nk1, nk2, nk3 ) grid with ( sk1, sk2, sk3 )
@@ -47,6 +45,17 @@ class KPoints:
         self.option = "automatic"
         self.config = [grid, offset]
 
+    def from_list(self, kpoints):
+        """read k-points in cartesian coordinates,
+        in units of 2 pi/a (default)
+        """
+        # Validate Input
+        if not hasattr(kpoints, "__iter__"):
+            raise Exception("kpoints must be list of kpoints")
+
+        self.option = "tpiba"
+        self.config = kpoints
+
     def validate(self):
         """
         Validate that class K_POINTS is properly setup
@@ -57,15 +66,24 @@ class KPoints:
             raise Exception(error_str)
 
     def __str__(self):
+        import pyqe.config as config
+
         kpoint_str = "{0} ({1})\n".format(self.name, self.option)
 
         if self.option == "automatic":
             # A little trick to convert list of int to delimited string
             grid_str = " ".join(map(str, self.config[0]))
             offset_str = " ".join(map(str, self.config[1]))
-            kpoint_str += QE_TAB + grid_str + " " + offset_str + "\n"
+            kpoint_str += config.card_space + grid_str + " " + offset_str + "\n"
+        elif self.option in ["tpiba", "tpiba_b", "tpiba_c", "crystal", "crystal_b", "crystal_c"]:
+            kpoint_str += config.card_space + "{0}\n".format(len(self.config))
+            for kpoint in self.config:
+                kpoint_str += config.card_space + "{0} {1} {2} 1.0\n".format(kpoint[0], kpoint[1], kpoint[2])
+        elif self.option == "gamma":
+            # Do nothing for gamma point calculation
+            pass
         else:
-            error_str = "K_POINT ({0}) not implemeted yet!".format(self.option)
+            error_str = "K_POINT ({0}) not implemeted yet! (should not happen)".format(self.option)
             raise Exception(error_str)
 
         return kpoint_str

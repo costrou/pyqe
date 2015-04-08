@@ -1,31 +1,31 @@
 """
 An assistant to QE (Quantum Espresso) via python
-currently my aim is to support the fortran syntax
+currently my aim is to support the fortran syntax (not xml)
 
 See
 http://www.quantum-espresso.org/wp-content/uploads/Doc/pw_user_guide/node8.html
-for details on the input format to PW
+http://www.quantum-espresso.org/wp-content/uploads/Doc/INPUT_PW.html
+for details on the input format to pw.x
 
 '!#' - fortran comment characters
-
-
 """
+
 from pyqe.cards import AtomicSpecies, AtomicPositions, KPoints, CellParameters
 from pyqe.namelists import Control, System, Electrons, Ions, Cell
-from pyqe.io import read_out_file
-import sys
 
-class QE:
+
+class PWBase:
     """
-    Quantum Espresso Main Class
+    PW Quantum Espresso Base
 
     From this class you can:
      - initialize the input
      - create inputfile
+     - validate input
      - run pw.x
     """
 
-    def __init__(self, qe_keypairs):
+    def __init__(self):
         self.control = Control()
         self.system = System()
         self.electrons = Electrons()
@@ -49,11 +49,9 @@ class QE:
             "cell": self.cell
         }
 
-        self.add_keypairs_to_namespace(qe_keypairs)
+    def add_keypairs_to_namelist(self, qe_keypairs):
+        """ Adds the respective keys to each namelist 
 
-    def add_keypairs_to_namespace(self, qe_keypairs):
-        """
-        Adds the respective keys to each namelist
         """
         for name, keypairs in qe_keypairs.items():
             namelist = self.namelist_asoc.get(name.lower())
@@ -78,12 +76,7 @@ class QE:
 
         ## Cards
         qe_str += str(self.atomic_species)
-
-        # Only needed if calculations is not
-        # 'band' or 'nscf'
-        if self.control.get_current_value("calculation") not in ["nscf", "bands"]:
-            qe_str += str(self.atomic_positions)
-
+        qe_str += str(self.atomic_positions)
         qe_str += str(self.k_points)
 
         # Only needed if unitcell is not defined
@@ -98,51 +91,49 @@ class QE:
         return qe_str
 
     def to_file(self, filename, input_format="fortran"):
+        """ Writes QE configuration to <filename> in format
+        specified. Currently only supports the Fortran style. 
+
         """
-        Writes QE configuration to <filename>
-        in format specified. Currently only supports
-        the Fortran style.
-        """
-        with open(filename, "w") as qefile:
-            qefile.write(self.to_string())
+        if input_format == "fortran":
+            with open(filename, "w") as qefile:
+                qefile.write(self.to_string())
+        else:
+            raise Exception("xml input specification not supported")
 
     def run(self, infile="", outfile="", errfile=""):
-        """
-        Runs QE pw.x.
+        """Runs QE pw.x.
 
         If stdin, stdout, stderr filenames are not defined
         no file is created for the given input or output.
 
-        If 'in_filename' is defined the program will run from the
+        If 'infile' is defined the program will run from the
         file rather than stdin via '-i'.
 
         Notice:
         QE will still create the save files in the directory
-        specified by 'outfile' in control namelist
+        specified by 'outfile' and 'errfile' in control namelist
         """
         from subprocess import Popen, PIPE
+        from time import time
+        from pyqe import config
 
-        prefix = []
-        postfix = []
-
+        start_time = time()
         if infile != "":
             self.to_file(infile)
 
-            pw_command = prefix + ["pw.x", '-i', infile] + postfix
+            pw_command = config.prefix + ["pw.x", '-i', infile] + config.postfix
             proc = Popen(pw_command, stdout=PIPE, stderr=PIPE)
             pw_output = proc.communicate()
         else:
             pw_input = self.to_string()
 
-            pw_command = prefix + ["pw.x"] + postfix
+            pw_command = config.prefix + ["pw.x"] + config.postfix
             proc = Popen(pw_command, stdin=PIPE, stdout=PIPE, stderr=PIPE)
             pw_output = proc.communicate(pw_input.encode())
 
         proc.wait()
-        if proc.returncode != 0:
-            with open("CRASH", "r") as f:
-                print("Quantum Espresso CRASH FILE:\n{0}".format(f.read()), file=sys.stderr)
-            raise Exception("pw.x CRASHED")
+        end_time = time()
 
         pw_out = pw_output[0].decode()
         pw_err = pw_output[1].decode()
@@ -155,14 +146,32 @@ class QE:
             with open(errfile, "w") as f:
                 f.write(pw_err)
 
-        return read_out_file(pw_out)
+        if proc.returncode != 0:
+            with open("CRASH", "r") as f:
+                print("Quantum Espresso CRASH FILE:\n{0}".format(f.read()))
+            raise Exception("pw.x CRASHED")
+
+        from pyqe.io import read_out_file, read_data_file
+        results = read_out_file(pw_out)
+
+        # Read save file output
+        prefix = self.control.get_current_value("prefix")
+        outdir = self.control.get_current_value("outdir")
+        if outdir[-1] == '/':
+            data_file = outdir + prefix + '.save/data-file.xml'
+        else:
+            data_file = outdir + '/' + prefix + '.save/data-file.xml'
+        results.update({"data-file": read_data_file(data_file)})
+
+        # Add run related info
+        results.update({'time': end_time - start_time})
+
+        return results
 
     def validate(self):
-        """
-        Each Namelist and Cards will validate its contents.
-        Sometimes they will need access to global information.
-        (not sure how to handle this yet)
-        """
+        """ Each Namelist and Card will validate its contents.
+        Sometimes they will need access to global information.  (not
+        sure how to handle this yet) """
         self.control.validate(self)
         self.system.validate(self)
         self.electrons.validate(self)

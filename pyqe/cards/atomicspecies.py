@@ -2,8 +2,6 @@
 Card Atomic Species
 
 """
-QE_TAB = "   "
-
 class AtomicSpecies:
     """
     Card: ATOMIC_SPECIES
@@ -57,7 +55,9 @@ class AtomicSpecies:
             self.validate_atom_type(atom)
 
     def __str__(self):
+        import pyqe.config as config
+
         atoms_str = "{0}\n".format(self.name)
         for atom in self.atoms:
-            atoms_str += QE_TAB + "{0} {1} {2}\n".format(atom[0], atom[1], atom[2])
+            atoms_str += config.card_space + "{0} {1} {2}\n".format(atom[0], atom[1], atom[2])
         return atoms_str

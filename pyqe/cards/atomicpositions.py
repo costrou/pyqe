@@ -2,7 +2,6 @@
 Card: Atomic Positions
 
 """
-QE_TAB = "   "
 
 class AtomicPositions:
     """
@@ -73,9 +72,11 @@ class AtomicPositions:
             raise Exception(error_str)
 
     def __str__(self):
+        import pyqe.config as config
+
         atomicpositions_str = "{0} ({1})\n".format(self.name, self.option)
         for atom_position in self.atom_positions:
             symbol = atom_position[0]
             position_str = " ".join(map(str, atom_position[1]))
-            atomicpositions_str += QE_TAB + symbol + " " + position_str + "\n"
+            atomicpositions_str += config.card_space + symbol + " " + position_str + "\n"
         return atomicpositions_str
