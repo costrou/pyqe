@@ -270,12 +270,14 @@ class QE(Calculator):
         from ase.units import Bohr, Ry, Hartree
 
         energy = results['calculation']['total energy'] * Ry
+
         forces = np.array([_[2] for _ in results['calculation']['forces']]) * Ry / Bohr
-            
+
         stress = np.array(results['calculation']['stress']) * Ry / (Bohr**3)
         # xx, yy, zz, yz, xz, xy
         stress = np.array([stress[0, 0], stress[1, 1], stress[2, 2],
                                stress[1, 2], stress[0, 2], stress[0, 1]])
+
         fermi_energy = results['data-file']['band-structure-info']['fermi-energy'] * Hartree
 
         for kpt in results['data-file']['kpoints']:
