@@ -269,31 +269,37 @@ class QE(Calculator):
         # Extract Results from outfile and convert to appropriate units
         from ase.units import Bohr, Ry, Hartree
 
-        energy = results['calculation']['total energy'] * Ry
+        # Updates from output file (some values may not be output!!)
+        if self.parameters.get('calculation') != "bands":
+            energy = results['calculation']['total energy'] * Ry
 
-        forces = np.array([_[2] for _ in results['calculation']['forces']]) * Ry / Bohr
+            forces = np.array([_[2] for _ in results['calculation']['forces']]) * Ry / Bohr
 
-        stress = np.array(results['calculation']['stress']) * Ry / (Bohr**3)
-        # xx, yy, zz, yz, xz, xy
-        stress = np.array([stress[0, 0], stress[1, 1], stress[2, 2],
+            stress = np.array(results['calculation']['stress']) * Ry / (Bohr**3)
+            # xx, yy, zz, yz, xz, xy
+            stress = np.array([stress[0, 0], stress[1, 1], stress[2, 2],
                                stress[1, 2], stress[0, 2], stress[0, 1]])
 
+            self.results.update(
+                {'energy': energy,
+                 'forces': forces,
+                 'stress': stress})
+
+        # Update from data file (guarenteed to be in output)
         fermi_energy = results['data-file']['band-structure-info']['fermi-energy'] * Hartree
 
         for kpt in results['data-file']['kpoints']:
             kpt['eigenvalues'] = np.array(kpt['eigenvalues']) * Hartree
 
-        self.results = {'energy': energy,
-                        'forces': forces,
-                        'stress': stress,
-                        'fermi-energy': fermi_energy,
-                        'xc-functional': results['data-file']['exchange-correlation'],
-                        'nspins': results['data-file']['band-structure-info']['number spin-components'],
-                        'nbands': results['data-file']['band-structure-info']['number bands'],
-                        'charge-density': results['data-file']['charge-density'],
-                        'ibz-kpoints': results['data-file']['kpoints']}
+        self.results.update(
+            {'fermi-energy': fermi_energy,
+             'xc-functional': results['data-file']['exchange-correlation'],
+             'nspins': results['data-file']['band-structure-info']['number spin-components'],
+             'nbands': results['data-file']['band-structure-info']['number bands'],
+             'charge-density': results['data-file']['charge-density'],
+             'ibz-kpoints': results['data-file']['kpoints']})
 
-        
+
     @calculation("energy")
     def get_potential_energy(self, atoms=None):
         return self.results['energy']
