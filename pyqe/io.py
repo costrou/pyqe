@@ -62,7 +62,6 @@ def read_out_file(output_str):
     used to parse the section for information 
 
     """
-
     # Determine if a force/stress/normal calculation was done
     # a differnt regex much be used for each type... I know right?!?!
     if re.search("entering subroutine stress \.\.\.", output_str):
@@ -91,10 +90,33 @@ def read_out_file(output_str):
             r"convergence has been achieved in\s+\d+ iterations",
             re.DOTALL)
 
+    header_regex = re.compile(
+        r".+?"
+        r"Largest temporary arrays",
+        re.DOTALL)
+
     bfgs_regex = re.compile(
         "BFGS Geometry Optimization"
         ".+?"
         "End of BFGS Geometry Optimization",
+        re.DOTALL)
+
+    bands_regex = re.compile(
+        "Band Structure Calculation"
+        ".+?"
+        "End of band structure calculation",
+        re.DOTALL)
+
+    md_regex = re.compile(
+        "Molecular Dynamics Calculation"
+        ".+?"
+        "End of molecular dynamics calculation",
+        re.DOTALL)
+
+    md_block_regex = re.compile(
+        "Entering Dynamics:"
+        ".+?"
+        "Writing output data file",
         re.DOTALL)
 
     bfgs_block_regex = re.compile(
@@ -103,29 +125,51 @@ def read_out_file(output_str):
         "Writing output data file",
         re.DOTALL)
 
-    final_block_regex = re.compile(
+    final_bfgs_block_regex = re.compile(
         "Final enthalpy"
         ".+?"
         "End final coordinates",
         re.DOTALL)
 
-    header_str = output_str[:scf_block_regex.search(output_str).start()]
+    footer_regex = re.compile(
+        "init_run     :"
+        ".+?$",
+        re.DOTALL)
 
-    scf_steps = scf_block_regex.findall(output_str)
-    bfgs_steps = bfgs_block_regex.findall(output_str)
+    header_str = output_str[:header_regex.search(output_str).end()]
+    footer_str = output_str[footer_regex.search(output_str).start():]
 
+    results = {"header": read_out_header(header_str),
+               "footer": footer_str}
+
+    # vc-relax or relax calculation (BFGS)
     if bfgs_regex.search(output_str):
-        bfgs_steps.append(final_block_regex.search(output_str).group())
+        scf_steps = scf_block_regex.findall(output_str)
+        bfgs_steps = bfgs_block_regex.findall(output_str)
+        bfgs_steps.append(final_bfgs_block_regex.search(output_str).group())
+
+        calc_steps = [ _ for _ in zip(scf_steps, bfgs_steps)]
+
+        results.update({"calculation": read_out_calculation(calc_steps)})
+    # md
+    elif md_regex.search(output_str):
+        scf_steps = scf_block_regex.findall(output_str)
+        md_steps = md_block_regex.findall(output_str)
+        md_steps.append(output_str[md_regex.search(output_str).end():footer_regex.search(output_str).start()])
+
+        calc_steps = [ _ for _ in zip(scf_steps, md_steps)]
+
+        results.update({"calculation": read_out_calculation(calc_steps)})
+    elif bands_regex.search(output_str):
+        # bands calculation does not do any scf or itteration calculations
+        pass
+    # Regular SCF Run
     else:
-        bfgs_steps = [""]
+        scf_step = scf_block_regex.findall(output_str)
+        assert len(scf_step) == 1
+        results.update({"calculation": read_out_scf(scf_step[0])})
 
-    calc_steps = [ _ for _ in zip(scf_steps, bfgs_steps)]
-
-    footer_begin = output_str.find("init_run")
-    footer_str = output_str[footer_begin:]
-
-    return {"header": read_out_header(header_str),
-            "calculation": read_out_calculation(calc_steps)}
+    return results
 
 
 def read_out_header(header_str):
@@ -219,18 +263,12 @@ def read_out_header(header_str):
     return header
 
 
-def read_out_calculation(bfgs_steps):
-    """Reads information about the calculation from the output file
-
-    - total energy (obviously the developers put an '!' so they could grep this line easier what a hack)  
-    - forces on each atom
-    - stress of cell
-    - volume of cell at each bfgs step
-    - lattice vectors at each bfgs step
-    - ion positions at each bfgs step
-    """
+def read_out_scf(scf_block):
+    """Reads information from scf step"""
     total_energy_regex = r"!\s+total energy\s+=\s+({0}) Ry".format(double_regex)
+
     force_regex = r"atom\s+({1})\s+type\s+({1})\s+force\s+=\s+({0})\s+({0})\s+({0})".format(double_regex, int_regex)
+
     stress_regex = (
         "total\s+stress\s+\(Ry/bohr\*\*3\)\s+\(kbar\)\s+P=\s*{0}\s+"
         "\s+({0})\s+({0})\s+({0})\s+{0}\s+{0}\s+{0}\s+"
@@ -238,6 +276,29 @@ def read_out_calculation(bfgs_steps):
         "\s+({0})\s+({0})\s+({0})\s+{0}\s+{0}\s+{0}\s+"
     ).format(double_regex)
 
+    scf_step = {}
+
+    match = re.search(total_energy_regex, scf_block)
+    scf_step.update({"total energy": float(match.group(1))})
+
+    match = re.findall(force_regex, scf_block)
+    if match:
+        force = [[int(f[0]), int(f[1]), [float(f[2]), float(f[3]), float(f[4])]] for f in match]
+        scf_step.update({'forces': force})
+
+    match = re.search(stress_regex, scf_block)
+    if match:
+        stress = [ float(_) for _ in match.groups(1)]
+        scf_step.update({"stress": [stress[0:3],
+                                    stress[3:6],
+                                    stress[6:9]]})
+    return scf_step
+
+
+def read_out_iteration(iteration_block):
+    """Reads the itterations step
+    vc-relax, relax, md
+    """
     volume_regex = r"new unit-cell volume\s=\s+({0}) a\.u\.\^3".format(double_regex)
     lattice_regex = (
         r"CELL_PARAMETERS.*"
@@ -247,43 +308,44 @@ def read_out_calculation(bfgs_steps):
     ).format(double_regex)
     ion_position_regex = "([A-Z][a-z]?)\s+({0})\s+({0})\s+({0})".format(double_regex)
 
+    iteration_step = {}
+
+    match = re.search(volume_regex, iteration_block)
+    if match:
+        iteration_step.update({"volume": float(match.group(1))})
+
+    match = re.search(lattice_regex, iteration_block)
+    lattice = None
+    if match:
+        lattice = [float(_) for _ in match.groups(1)]
+        iteration_step.update({"lattice": [lattice[0:3],
+                                           lattice[3:6],
+                                           lattice[6:9]]})
+
+    match = re.findall(ion_position_regex, iteration_block)
+    if match:
+        iteration_step.update({"ion positions": [[_[0], float(_[1]), float(_[2]), float(_[3])] for _ in match]})
+
+    return iteration_step
+
+
+def read_out_calculation(iteration_steps):
+    """Reads information about the calculation from the output file
+
+    - total energy (obviously the developers put an '!' so they could grep this line easier what a hack)  
+    - forces on each atom
+    - stress of cell
+    - volume of cell at each bfgs step
+    - lattice vectors at each bfgs step
+    - ion positions at each bfgs step
+    """
+
     iterations = []
-    for scf_block, bgfs_block in bfgs_steps:
+    for scf_block, iteration_block in iteration_steps:
         iteration = {}
 
-        # SCF Block
-        match = re.search(total_energy_regex, scf_block)
-        iteration.update({"total energy": float(match.group(1))})
-
-        match = re.findall(force_regex, scf_block)
-        if match:
-            force = [[int(f[0]), int(f[1]), [float(f[2]), float(f[3]), float(f[4])]] for f in match]
-            iteration.update({'forces': force})
-
-        match = re.search(stress_regex, scf_block)
-        if match:
-            stress = [ float(_) for _ in match.groups(1)]
-            iteration.update({"stress": [stress[0:3],
-                                         stress[3:6],
-                                         stress[6:9]]})
-
-        # BFGS Block
-        print(bgfs_block)
-        match = re.search(volume_regex, bgfs_block)
-        if match:
-            iteration.update({"volume": float(match.group(1))})
-
-        match = re.search(lattice_regex, bgfs_block)
-        lattice = None
-        if match:
-            lattice = [float(_) for _ in match.groups(1)]
-            iteration.update({"lattice": [lattice[0:3],
-                                          lattice[3:6],
-                                          lattice[6:9]]})
-
-        match = re.findall(ion_position_regex, bgfs_block)
-        if match:
-            iteration.update({"ion positions": [[_[0], float(_[1]), float(_[2]), float(_[3])] for _ in match.groups()]})
+        iteration.update(read_out_scf(scf_block))
+        iteration.update(read_out_iteration(iteration_block))
 
         iterations.append(iteration)
 
