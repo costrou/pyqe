@@ -7,9 +7,10 @@ ASE Calculator for Quantum Espresso
 """
 
 from ase.calculators.calculator import Calculator, equal
+from ase.units import Bohr, Ry, Hartree
+
 from pyqe.espresso import PWBase
 import numpy as np
-
 
 def calculation(property_name):
     def calculation_decorator(property_function):
@@ -53,7 +54,7 @@ class QE(Calculator):
         calculation:
             str - only scf[default] supported at the moment
         ecutwfc: 
-            plane wave cuttoff
+            plane wave cuttoff [eV] notice not in Ry!
         nbands:
             number of bands for calculation (see pw.x -> nbnd)
         usesymm:
@@ -131,7 +132,6 @@ class QE(Calculator):
 
     def reset(self):
         """Clear all information from old calculation."""
-        self.atoms = None
         self.results = {}
 
     def set_atoms(self, atoms):
@@ -170,7 +170,7 @@ class QE(Calculator):
             self._pw.control.add_keypair(('calculation', self.parameters.get('calculation')))
 
         if self.parameters.get('ecutwfc'):
-            self._pw.system.add_keypair(('ecutwfc', self.parameters['ecutwfc']))
+            self._pw.system.add_keypair(('ecutwfc', self.parameters['ecutwfc'] / Ry))
 
         if self.parameters.get('nbands'):
             self._pw.system.add_keypair(('nbnd', self.parameters['nbands']))
@@ -267,7 +267,7 @@ class QE(Calculator):
 
     def _set_results(self, results):
         # Extract Results from outfile and convert to appropriate units
-        from ase.units import Bohr, Ry, Hartree
+
 
         # Updates from output file (some values may not be output!!)
         if self.parameters.get('calculation') != "bands":
