@@ -200,8 +200,8 @@ class QE(Calculator):
             fft_mesh = self.parameters['fft_mesh']
             if len(fft_mesh) == 3 and isinstance(fft_mesh[0], int):
                 self._pw.system.add_keypairs({'nr1': fft_mesh[0],
-                                               'nr2': fft_mesh[1],
-                                               'nr3': fft_mesh[2]})
+                                              'nr2': fft_mesh[1],
+                                              'nr3': fft_mesh[2]})
             else:
                 error_str = 'FFT MESH = [nr1, nr2, nr3] each is integer'
                 raise Exception(error_str)
